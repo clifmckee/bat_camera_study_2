@@ -87,3 +87,52 @@ fruit_data <- rbind(fruit_data_1, fruit_data_2) %>%
                           Year == 2011 ~ 2011,
                           Year == 2012 ~ 2012,
                           Year == 2013 ~ 2013))
+
+## Additional data checks
+
+# Check that the number of visits = 1 if duration of stay > 0
+flagged <- fruit_data %>% 
+  filter(Number_of_visits==0 & DurStayT>0)
+# 0 observations
+
+# Check that the number of stays = 1 if duration of stay > 1
+flagged_1 <- fruit_data %>% 
+  filter(Number_of_stays==0 & DurStayT>1)
+# 4 observations
+
+# Replace number of stays as 1 instead of 0
+fruit_data_update <- fruit_data %>% 
+  mutate(Number_of_stays = case_when(
+    Number_of_stays==0 & DurStayT>1 ~ 1, 
+    TRUE~Number_of_stays))
+
+
+# Check that the number of visits = 1 if the number of stays = 1
+flagged_2 <- fruit_data %>% 
+  filter(Number_of_visits==0 & Number_of_stays==1)
+# 0 observations
+
+# Check that the number of contaminations = 1 if the number of stays = 1
+flagged_3 <- fruit_data %>% 
+  filter(Number_of_contaminations==1 & Number_of_stays==0)
+# 2 observations
+
+# Replace number of contamination as 0 instead of 1
+fruit_data_update <- fruit_data_update %>% 
+  mutate(Number_of_contaminations = case_when(
+    Number_of_contaminations==1 & Number_of_stays==0 ~ 0, 
+    TRUE~Number_of_contaminations))
+
+# Check that duration of contamination is never larger than duration of stay
+flagged_4 <- fruit_data %>% 
+  filter(DurContT>DurStayT)
+# 1 observation
+
+# Replace the duration of contamination with the duration of stay
+fruit_data_update <- fruit_data_update %>% 
+  mutate(DurContT = case_when(
+    DurContT>DurStayT ~ DurStayT, 
+    TRUE~DurContT))
+
+# save fruit tree visit data
+saveRDS(fruit_data_update, file = "fruit_tree_visit_data.rds")

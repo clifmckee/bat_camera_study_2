@@ -69,3 +69,28 @@ survey_villages %>%
 ggplot(survey_villages, aes(x = group, y = q6_3_3)) +
   geom_boxplot() +
   labs(x = "Case/control group", y = "Number of banana trees")
+
+## Additional data checks
+
+# Check that villages only have one village type listed
+survey_villages_1 <- survey_villages %>% 
+  select(q1_6,case_control_group) %>% 
+  rename(Village_ID = q1_6) 
+
+survey_villages_1 <- survey_villages_1 %>% 
+  transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
+
+survey_villages_1 <- survey_villages_1[!duplicated(survey_villages_1), ] 
+
+survey_villages_1 <- na.omit(survey_villages_1)
+
+survey_villages_1 <- survey_villages_1 %>% 
+  mutate("dup" = duplicated(survey_villages_1$Village_ID))
+
+# village 2045 has two different village types listed
+# village 2087 has two different village types listed
+# village 3058 has two different village types listed
+
+
+# save community resident fruit survey
+saveRDS(survey_villages, file = "community_resident_fruit_survey.rds")
