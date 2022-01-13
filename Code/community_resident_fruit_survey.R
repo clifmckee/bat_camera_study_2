@@ -98,4 +98,4 @@ survey_villages_1 <- survey_villages_1 %>%
 # village 3058 has two different village types listed --> RESOLVED
 
 # save community resident fruit survey
-saveRDS(survey_villages, file = "community_resident_fruit_survey.rds")
+saveRDS(survey_villages, file = here("Data", "community_resident_fruit_survey.RDS"))
