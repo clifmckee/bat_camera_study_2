@@ -1,0 +1,926 @@
+---
+title: "Community Resident Fruit Survey EDA"
+author: "Kelly Endres"
+date: "1/13/2022"
+output: html_document
+---
+
+Rmarkdown file examining bat, human, and domestic animal fruit consumption behaviors in Bangladesh. Compares behaviors between Nipah virus case and control villages. 
+
+This preliminary data analysis reviews the community resident survey given to  the selected baris in each village. The survey assesses fruit consumption, related habits, and fruit trees. Thirty-one different types of fruits/fruit trees are included in the survey. 
+
+Many questions address consumption of dropped fruits, which is used as a proxy for fruits potentially contaminated by bats. For example, if bats often visit a type of tree, and that tree's fruit is eaten off the ground, its possible that contaminated fruit is being consumed. 
+
+
+Overview:  
+1. Initial data observations  
+2. Fruit consumption tables, by village type and tree type  
+3. Fruit consumption graphs  
+4. Additional fruit consumption questions  
+5. Other  
+
+### 1. Initial data observations
+
+The following packages are used in analysis:
+```{r load packages, message=FALSE}
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(haven)
+library(knitr)
+```
+
+Import cleaned dataset of community resident surveys. 
+```{r import data}
+fruit_survey <- readRDS(here("DATA","community_resident_fruit_survey.RDS"))
+```
+
+Examine data structure
+```{r}
+head(fruit_survey)
+
+# number of villages
+n_distinct(fruit_survey$q1_6)
+
+# villages by village type
+fruit_survey %>% 
+  group_by(case_control_group) %>% 
+  summarise(villages_by_type = n_distinct(q1_6))
+  
+# respondents per village
+fruit_survey %>% 
+  group_by(q1_6) %>% 
+  summarise(participants_per_village = n_distinct(dataid)) %>% 
+  summary(participants_per_village)
+
+  # Clif - why are there 3 observations with no data? 
+  fruit_survey[fruit_survey$q1_6=="", ]
+  
+# respondents by village type
+fruit_survey %>% 
+  group_by(case_control_group) %>% 
+  summarise(participants_per_villagetype = n_distinct(dataid)) %>% 
+  summary(participants_per_villagetype)
+```
+  
+Fruit survey dataset includes 245 villages and 5081 respondents. Of the 245 villages, 72 are case villages, 82 are far control, and 92 are near control. The median number of respondents per villages is 25 (min-max: 1-26) and the median per village type is 1768 (min-max: 1473-1815).
+
+#### 2. Fruit consumption by tree type
+
+There are four main questions that assess fruit consumption by bari members, bats, and animals separated by tree type. 
+- Do members of your bari eat any [insert fruit] off the ground? (q5_frt#_5_4)
+- Do members of your bari eat any [insert fruit]? (q5_frt#_5_3)
+- Do domestic mammals (cow,sheep,goat,pig,dog,cat)eat [insert fruit] jam off ground?
+- Do bats eat any [insert fruit]?
+
+Table of reported overall consumption by tree type for the above questions:
+
+```{r human total dropped fruit consumption}
+#create table
+h_dropped_total <- fruit_survey %>%
+  summarize(banana = mean(q5_frt1_5_4, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_4, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_4, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_4, na.rm = TRUE),
+            guava = mean(q5_frt5_5_4, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_4, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_4, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_4, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_4, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_4, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_4, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_4, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_4, na.rm = TRUE),
+            melon = mean(q5_frt14_5_4, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_4, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_4, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_4, na.rm = TRUE),
+            plum = mean(q5_frt18_5_4, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_4, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_4, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_4, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_4, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_4, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_4, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_4, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_4, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_4, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_4, na.rm = TRUE),
+            betel = mean(q5_frt29_5_4, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_4, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_4, na.rm = TRUE))
+
+#pivot table to long format
+h_dropped_total_l <- h_dropped_total %>% 
+  pivot_longer(c(1:31), names_to = "Tree_type", values_to = "Human_dropped_fruit")
+```
+
+
+```{r human total fruit consumption}
+# create table
+h_fruit_total <- fruit_survey %>%
+  summarize(banana = mean(q5_frt1_5_3, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_3, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_3, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_3, na.rm = TRUE),
+            guava = mean(q5_frt5_5_3, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_3, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_3, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_3, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_3, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_3, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_3, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_3, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_3, na.rm = TRUE),
+            melon = mean(q5_frt14_5_3, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_3, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_3, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_3, na.rm = TRUE),
+            plum = mean(q5_frt18_5_3, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_3, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_3, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_3, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_3, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_3, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_3, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_3, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_3, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_3, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_3, na.rm = TRUE),
+            betel = mean(q5_frt29_5_3, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_3, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_3, na.rm = TRUE),)
+
+#pivot table to long format
+h_fruit_total_l <- h_fruit_total %>% 
+  pivot_longer(c(1:31), names_to = "Tree_type", values_to = "Human_fruit")
+```
+
+
+```{r animal total dropped fruit consumption}
+#create table 
+a_dropped_total <- fruit_survey %>%
+  summarize(banana = mean(q5_frt1_5_5, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_5, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_5, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_5, na.rm = TRUE),
+            guava = mean(q5_frt5_5_5, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_5, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_5, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_5, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_5, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_5, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_5, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_5, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_5, na.rm = TRUE),
+            melon = mean(q5_frt14_5_5, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_5, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_5, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_5, na.rm = TRUE),
+            plum = mean(q5_frt18_5_5, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_5, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_5, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_5, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_5, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_5, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_5, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_5, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_5, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_5, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_5, na.rm = TRUE),
+            betel = mean(q5_frt29_5_5, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_5, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_5, na.rm = TRUE),)
+
+
+#pivot table to long format
+a_dropped_total_l <- a_dropped_total %>% 
+  pivot_longer(c(1:31), names_to = "Tree_type", values_to = "Animal_dropped_fruit")
+```
+
+```{r bat fruit consumption}
+#create table
+b_fruit_total <- fruit_survey %>%
+  summarize(banana = mean(q5_frt1_5_7, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_7, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_7, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_7, na.rm = TRUE),
+            guava = mean(q5_frt5_5_7, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_7, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_7, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_7, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_7, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_7, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_7, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_7, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_7, na.rm = TRUE),
+            melon = mean(q5_frt14_5_7, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_7, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_7, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_7, na.rm = TRUE),
+            plum = mean(q5_frt18_5_7, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_7, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_7, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_7, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_7, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_7, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_7, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_7, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_7, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_7, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_7, na.rm = TRUE),
+            betel = mean(q5_frt29_5_7, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_7, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_7, na.rm = TRUE),)
+
+#pivot table to long format
+b_fruit_total_l <- b_fruit_total %>% 
+  pivot_longer(c(1:31), names_to = "Tree_type", values_to = "Bat_fruit")
+```
+
+
+```{r combine fruit consumption tables by tree type}
+fruit_consumption <- full_join(h_fruit_total_l, h_dropped_total_l, by="Tree_type")
+fruit_consumption <- full_join(fruit_consumption, a_dropped_total_l, by="Tree_type")
+fruit_consumption <- full_join(fruit_consumption, b_fruit_total_l, by="Tree_type")
+
+summary(fruit_consumption)
+
+kable(fruit_consumption, digits = 2, caption = "Proportion of respondants reporting fruit consumption by bari members bats and dropped fruit consumption by bari members and domestic animals")
+```
+
+
+Table of reported overall consumption by village type and tree type for the above questions:
+
+```{r human dropped fruit consumption table by village type}
+#create table
+h_dropped <- fruit_survey %>%
+  group_by(group) %>% #grouped by village type
+  summarize(banana = mean(q5_frt1_5_4, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_4, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_4, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_4, na.rm = TRUE),
+            guava = mean(q5_frt5_5_4, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_4, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_4, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_4, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_4, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_4, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_4, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_4, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_4, na.rm = TRUE),
+            melon = mean(q5_frt14_5_4, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_4, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_4, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_4, na.rm = TRUE),
+            plum = mean(q5_frt18_5_4, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_4, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_4, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_4, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_4, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_4, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_4, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_4, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_4, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_4, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_4, na.rm = TRUE),
+            betel = mean(q5_frt29_5_4, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_4, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_4, na.rm = TRUE),)
+
+#change to long format
+h_dropped_l <- h_dropped %>% 
+  pivot_longer(!group, names_to = "tree_type", values_to = "Human_dropped_fruit")
+```
+
+```{r human fruit consumption table by village type, echo=FALSE}
+# create table
+h_fruit <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(banana = mean(q5_frt1_5_3, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_3, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_3, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_3, na.rm = TRUE),
+            guava = mean(q5_frt5_5_3, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_3, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_3, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_3, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_3, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_3, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_3, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_3, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_3, na.rm = TRUE),
+            melon = mean(q5_frt14_5_3, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_3, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_3, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_3, na.rm = TRUE),
+            plum = mean(q5_frt18_5_3, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_3, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_3, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_3, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_3, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_3, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_3, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_3, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_3, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_3, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_3, na.rm = TRUE),
+            betel = mean(q5_frt29_5_3, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_3, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_3, na.rm = TRUE),)
+
+h_fruit_l <- h_fruit %>% 
+  pivot_longer(!group, names_to = "tree_type", values_to = "human_fruit")
+```
+
+```{r animal dropped fruit consumption table}
+# fruits consumed off of the ground
+a_dropped <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(banana = mean(q5_frt1_5_5, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_5, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_5, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_5, na.rm = TRUE),
+            guava = mean(q5_frt5_5_5, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_5, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_5, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_5, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_5, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_5, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_5, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_5, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_5, na.rm = TRUE),
+            melon = mean(q5_frt14_5_5, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_5, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_5, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_5, na.rm = TRUE),
+            plum = mean(q5_frt18_5_5, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_5, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_5, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_5, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_5, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_5, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_5, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_5, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_5, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_5, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_5, na.rm = TRUE),
+            betel = mean(q5_frt29_5_5, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_5, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_5, na.rm = TRUE),)
+
+a_dropped_l <- a_dropped %>% 
+  pivot_longer(!group, names_to = "tree_type", values_to = "animal_dropped_fruit")
+```
+
+```{r bat dropped fruit consumption table}
+# fruits consumed off of the ground
+b_fruit <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(banana = mean(q5_frt1_5_7, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_7, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_7, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_7, na.rm = TRUE),
+            guava = mean(q5_frt5_5_7, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_7, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_7, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_7, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_7, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_7, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_7, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_7, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_7, na.rm = TRUE),
+            melon = mean(q5_frt14_5_7, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_7, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_7, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_7, na.rm = TRUE),
+            plum = mean(q5_frt18_5_7, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_7, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_7, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_7, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_7, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_7, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_7, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_7, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_7, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_7, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_7, na.rm = TRUE),
+            betel = mean(q5_frt29_5_7, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_7, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_7, na.rm = TRUE),)
+
+b_fruit_l <- b_fruit %>% 
+  pivot_longer(!group, names_to = "tree_type", values_to = "bat_fruit")
+```
+
+
+#### 4. Graphs 
+
+```{r human dropped fruit consumption graph, echo=FALSE}
+ggplot(h_dropped_l, aes(x = tree_type, y = Human_dropped_fruit, color = group)) +
+  geom_point() +
+  labs(x = "Fruit type", 
+       y = "Proportion of baris with members \n consuming fruit off ground", 
+       title = "Proportion of respondants reporting dropped fruit consumption by bari members grouped by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+```{r human fruit consumption graph, echo=FALSE}
+ggplot(h_fruit_l, aes(x = tree_type, y = human_fruit, color = group)) +
+  geom_point() +
+  labs(x = "Fruit type", 
+       y = "Proportion of baris with members \n consuming fruit", 
+       title = "Proportion of respondants reporting fruit consumption by bari members grouped by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+```{r animal dropped fruit consumption graph}
+ggplot(a_dropped_l, aes(x = tree_type, y = animal_dropped_fruit, color = group)) +
+  geom_point() +
+  labs(x = "Fruit type", 
+       y = "proportion of baris with animals consuming fruit off ground", 
+       title = "Reported animal consumption of dropped fruits by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+```{r bat fruit consumption graph}
+ggplot(b_fruit_l, aes(x = tree_type, y = bat_fruit, color = group)) +
+  geom_point() +
+  labs(x = "Fruit type", 
+       y = "proportion of baris with bats consuming fruit", 
+       title = "Reported bat consumption of fruits by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+Reported consumption of dropped fruits by bari members was highest for mango (76%), buroi (66%), guava (47%), and betel (38%). Consumption was lowest for melon (0%), water chestnut (0%), and urium (0%). While reported dropped fruit consumption of date palm was comparatively lower, at (21%), dropped date palm consumption was highest among case villages by the largest difference of any fruit. Case village consumption of date palm was reported to be 29%, control near 21%, and control far 16%. The average reported consumption among all fruits was 16%. 
+
+Reported consumption of fruits by bari members among fruit tree types was generally high (mean = 57%) with little difference in consumption between village types. Fruits consumed the most were mango (98%), jackfruit (96%), banana (96%), buroi (95%), and guava (94%). However, date palm consumption was again highest among case villages by the largest difference of any fruit. Case village consumption of date palm was reported to be 71%, control near 62%, and control far 52%.
+
+Reported consumption of dropped fruits by domestic animals was much lower than human consumption (mean = 7%). Dropped fruit consumption was highest for mango (30%), buroi (27%), guava (21%), jackfruit (18%), and banana (14%). Date palm consumption was 8% overall; 7% in case villages, 6% in near control villages, and 10% in far control villages. Difference in consumption between village types overall seems to vary more among domestic animals than humans, though this may be due to decreased accuracy in observations of animal fruit consumption compared to human fruit consumption. 
+
+Reported consumption of fruits by bats was on average 33%. This was highest for mango (90%), guava (84%), buroi (81%), and banana (82%). In each case consumption was slightly higher in case villages compared to near control villages, and higher in near control villages than far control villages. Date palm consumption was 44% overall; 52% in case villages, 40% in near control villages, and 40% in far control villages. 
+
+Date palm consumption was highest in case villages for bat fruit consumption, human fruit consumption, and human dropped fruit consumption. Dropped fruit consumption is a proxy for cosumption of fruits that may have been bitten or contaminated by bats. However, the high reported consumption of mango, guava, and buroi by bats compared with high dropped fruit consumption of these fruits by humans is potentially notable. 
+
+
+
+Additional comparison graphs are displayed for the 6 fruit species that had bat camera trap tree visits (banana, jujube aka buroi, guava, fig, star fruit, and sapodilla aka sofeda), as well as for date palm. 
+  
+*What is fig known as?*
+
+  
+```{r banana fruit consumption comparison, echo=FALSE}
+
+banana_consumption <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(human.fruit = mean(q5_frt1_5_3, na.rm = TRUE), 
+            human.dropped = mean(q5_frt1_5_4, na.rm = TRUE), 
+            animal.dropped = mean(q5_frt1_5_5, na.rm = TRUE),
+            bat.fruit = mean(q5_frt1_5_7, na.rm = TRUE))
+
+banana_consumption <- banana_consumption %>% 
+  pivot_longer(!group, names_to = "group_type", values_to = "proportion")
+
+ggplot(banana_consumption, aes(x = group_type, y = proportion, color = group)) +
+  geom_point() +
+  ylim(0,1) +
+  labs(x = "Consumption group", 
+       y = "Proportion consuming fruit", 
+       title = "Reported consumption of bananas by humans, bats, and animals by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+
+```{r guava fruit consumption comparison}
+
+guava_consumption <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(human.fruit = mean(q5_frt5_5_3, na.rm = TRUE), 
+            human.dropped = mean(q5_frt5_5_4, na.rm = TRUE), 
+            animal.dropped = mean(q5_frt5_5_5, na.rm = TRUE),
+            bat.fruit = mean(q5_frt5_5_7, na.rm = TRUE))
+
+guava_consumption <- guava_consumption %>% 
+  pivot_longer(!group, names_to = "group_type", values_to = "proportion")
+
+ggplot(guava_consumption, aes(x = group_type, y = proportion, color = group)) +
+  geom_point() +
+  ylim(0,1) +
+  labs(x = "Consumption group", 
+       y = "Proportion consuming fruit", 
+       title = "Reported consumption of guava by humans, bats, and animals by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+```{r date_palm fruit consumption comparison}
+
+date_palm_consumption <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(human.fruit = mean(q5_frt6_5_3, na.rm = TRUE), 
+            human.dropped = mean(q5_frt6_5_4, na.rm = TRUE), 
+            animal.dropped = mean(q5_frt6_5_5, na.rm = TRUE),
+            bat.fruit = mean(q5_frt6_5_7, na.rm = TRUE))
+
+date_palm_consumption <- date_palm_consumption %>% 
+  pivot_longer(!group, names_to = "group_type", values_to = "proportion")
+
+ggplot(date_palm_consumption, aes(x = group_type, y = proportion, color = group)) +
+  geom_point() +
+  ylim(0,1) +
+  labs(x = "Consumption group", 
+       y = "Proportion consuming fruit", 
+       title = "Reported consumption of date palm by humans, bats, and animals by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```            
+
+```{r star fruit consumption comparison, echo=FALSE}
+
+star_fruit_consumption <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(human.fruit = mean(q5_frt26_5_3, na.rm = TRUE), 
+            human.dropped = mean(q5_frt26_5_4, na.rm = TRUE), 
+            animal.dropped = mean(q5_frt26_5_5, na.rm = TRUE),
+            bat.fruit = mean(q5_frt26_5_7, na.rm = TRUE))
+
+star_fruit_consumption <- star_fruit_consumption %>% 
+  pivot_longer(!group, names_to = "group_type", values_to = "proportion")
+
+ggplot(star_fruit_consumption, aes(x = group_type, y = proportion, color = group)) +
+  geom_point() +
+  ylim(0,1) +
+  labs(x = "Consumption group", 
+       y = "Proportion consuming fruit", 
+       title = "Reported consumption of star fruit by humans, bats, and animals by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+   
+```{r sofeda fruit consumption comparison, echo=FALSE}
+
+sofeda_consumption <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(human.fruit = mean(q5_frt4_5_3, na.rm = TRUE), 
+            human.dropped = mean(q5_frt4_5_4, na.rm = TRUE), 
+            animal.dropped = mean(q5_frt4_5_5, na.rm = TRUE),
+            bat.fruit = mean(q5_frt4_5_7, na.rm = TRUE))
+
+sofeda_consumption <- sofeda_consumption %>% 
+  pivot_longer(!group, names_to = "group_type", values_to = "proportion")
+
+ggplot(sofeda_consumption, aes(x = group_type, y = proportion, color = group)) +
+  geom_point() +
+  ylim(0,1) +
+  labs(x = "Consumption group", 
+       y = "Proportion consuming fruit", 
+       title = "Reported consumption of sofeda by humans, bats, and animals by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+```{r buroi fruit consumption comparison, echo=FALSE}
+
+buroi_consumption <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(human.fruit = mean(q5_frt3_5_3, na.rm = TRUE), 
+            human.dropped = mean(q5_frt3_5_4, na.rm = TRUE), 
+            animal.dropped = mean(q5_frt3_5_5, na.rm = TRUE),
+            bat.fruit = mean(q5_frt3_5_7, na.rm = TRUE))
+
+buroi_consumption <- buroi_consumption %>% 
+  pivot_longer(!group, names_to = "group_type", values_to = "proportion")
+
+ggplot(buroi_consumption, aes(x = group_type, y = proportion, color = group)) +
+  geom_point() +
+  ylim(0,1) +
+  labs(x = "Consumption group", 
+       y = "Proportion consuming fruit", 
+       title = "Reported consumption of buroi by humans, bats, and animals by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        axis.title.y = element_text(vjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+
+#### 4. Additional survey questions
+
+There are several survey questions that provide additional insite into fruit consumption of humans, bats, and animals. 
+
+Human fruit consumption questions:
+
+```{r human dropped fruits, echo=FALSE}
+#Are the fruits on the ground eaten by bari members? (q5_17)
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(human_dropped = mean(q5_17, na.rm = TRUE)) 
+  
+```
+
+```{r human dropped and bat bitten fruits p2, echo = FALSE}
+#How often do compound members eat bat or bird bitten fruits? (q5_18)
+unique(fruit_survey$q5_18)
+
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarise(median_household = median(q5_18, na.rm = TRUE))
+  
+```
+
+Reported dropped fruit consumption by bari members was lowest in case villages, at 42%, compared to both categories of control villages. Of those who reported dropped fruit consumption, most stated only occassional consumption. 
+
+Domestic animals fruit consumption questions:
+
+```{r additional info}
+#Are the fruits on the ground eaten by domestic animals? (q5_19)
+fruit_survey %>%
+  summarize(proportion_households = mean(q5_19, na.rm = TRUE))
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = mean(q5_19, na.rm = TRUE))
+
+#Are bat or bird bitten fruit fed to domestic animals? (q5_21)
+fruit_survey %>%
+  summarize(proportion_households = mean(q5_21, na.rm = TRUE))
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = mean(q5_21, na.rm = TRUE))
+
+#How often is bat or bird bitten fruit fed to domestic animals? (q5_22)
+unique(fruit_survey$q5_22)
+
+fruit_survey %>%
+  summarize(proportion_households = median(q5_22, na.rm = TRUE))
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = median(q5_22, na.rm = TRUE))
+
+#Is raw sap fed to animals? (q3_6_10)
+fruit_survey %>%
+  summarize(proportion_households = mean(q3_6_10, na.rm = TRUE))
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = mean(q3_6_10, na.rm = TRUE))
+
+#Do you feed dirty sap to animals? (q3_11_2)
+fruit_survey %>%
+  summarize(proportion_households = mean(q3_11_2, na.rm = TRUE))
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = mean(q3_11_2, na.rm = TRUE))
+
+#How often do you feed date palm sap to animals? (q3_12)
+unique(fruit_survey$q3_12)
+
+fruit_survey %>%
+  summarize(proportion_households = median(q3_12, na.rm = TRUE))
+
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = median(q3_12, na.rm = TRUE))
+
+#Have you heard of other people in the village feeding sap to animals? (q3_13)
+fruit_survey %>%
+  summarize(proportion_households = mean(q3_13, na.rm = TRUE))
+fruit_survey %>%
+  group_by(case_control_group) %>%
+  summarize(proportion_households = mean(q3_13, na.rm = TRUE))
+```
+
+Consumption of fruits on the ground by animals 30%, and is lowest in case villages at 22%. Feeding bat or bird bitten fruits to domestic animals is less common, but is again lowest in case villages at 14%. Among those who reported feeding these to domestic animals the behavior was reported to be most often done only occasionally in all village types. 
+
+Interestingly, more respondents reported that raw date palm sap and dirty sap is fed to domestic animals in near control villages compared to far control or case villages. However, in far control and case villages date palm sap is fed to animals most often daily compared to about once per week in near control villages. 
+
+Bat fruit consumption questions:
+
+```{r other info}
+#Do you ever see fruits from the trees on the ground bitten by bats or birds? (q5_14)
+fruit_survey %>%
+  summarize(proportion_households = mean(q5_14, na.rm = TRUE))
+fruit_survey %>%
+  group_by(group) %>%
+  summarize(proportion_households = mean(q5_14, na.rm = TRUE))
+
+#During this time of year, do you see tree fruit on the ground bitten by bats or birds? (q5_15)
+fruit_survey %>%
+  summarize(proportion_households = mean(q5_15, na.rm = TRUE))
+fruit_survey %>%
+  group_by(group) %>%
+  summarize(proportion_households = mean(q5_15, na.rm = TRUE))
+
+#In the past month did you ever see large fruit bat in your fruit trees at night? (q6_2_3)
+fruit_survey %>%
+  summarize(proportion_households = mean(q6_2_3, na.rm = TRUE))
+fruit_survey %>%
+  group_by(group) %>%
+  summarize(proportion_households = mean(q6_2_3, na.rm = TRUE))
+
+#How often were bats in your fruit trees at night? (q6_3_3)
+unique(fruit_survey$q6_3_3)
+
+fruit_survey %>%
+  summarize(proportion_households = median(q6_3_3, na.rm = TRUE))
+fruit_survey %>%
+  group_by(group) %>%
+  summarize(proportion_households = median(q6_3_3, na.rm = TRUE))
+
+
+```
+
+
+Villagers report commonly seeing dropped fruits that have been bitten by bats or birds. This is highest in case villages at 88%, followed by near controls at 87%, and far controls at 79%. 
+
+Of those who reported that they see fruits on the ground that have been bitten by bats or birds, about 60% reported that it occurs during this time of year. This was highest in case villages, at 72%, followed by near controls at 58% and far controls at 51%. 
+
+Case villagers reported seeing fruit bats in their trees at night the least, at 43%, compared to control villages, both at 52%. 
+
+#### 5. Other information
+
+Number of trees in bari (q5_frt#_5_2)
+
+```{r Number of trees in bari table}
+# fruits consumed off of the ground
+mean_trees <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(banana = mean(q5_frt1_5_2, na.rm = TRUE), 
+            mango = mean(q5_frt2_5_2, na.rm = TRUE), 
+            buroi = mean(q5_frt3_5_2, na.rm = TRUE),
+            sofeda = mean(q5_frt4_5_2, na.rm = TRUE),
+            guava = mean(q5_frt5_5_2, na.rm = TRUE),
+            date_palm = mean(q5_frt6_5_2, na.rm = TRUE),
+            jackfruit = mean(q5_frt7_5_2, na.rm = TRUE),
+            lichhi = mean(q5_frt8_5_2, na.rm = TRUE),
+            custard_apple = mean(q5_frt9_5_2, na.rm = TRUE),
+            wood_apple = mean(q5_frt10_5_2, na.rm = TRUE),
+            elephant_apple = mean(q5_frt11_5_2, na.rm = TRUE),
+            papaya = mean(q5_frt12_5_2, na.rm = TRUE),
+            watermelon = mean(q5_frt13_5_2, na.rm = TRUE),
+            melon = mean(q5_frt14_5_2, na.rm = TRUE),
+            cashew_fruit = mean(q5_frt15_5_2, na.rm = TRUE),
+            pomegranate = mean(q5_frt16_5_2, na.rm = TRUE),
+            palmyra = mean(q5_frt17_5_2, na.rm = TRUE),
+            plum = mean(q5_frt18_5_2, na.rm = TRUE),
+            rose_apple = mean(q5_frt19_5_2, na.rm = TRUE), 
+            indian_olive = mean(q5_frt20_5_2, na.rm = TRUE),
+            latkan = mean(q5_frt21_5_2, na.rm = TRUE),
+            monkey_jack = mean(q5_frt22_5_2, na.rm = TRUE),
+            uriam = mean(q5_frt23_5_2, na.rm = TRUE),
+            rattan = mean(q5_frt24_5_2, na.rm = TRUE),
+            river_ebony = mean(q5_frt25_5_2, na.rm = TRUE),
+            star_fruit = mean(q5_frt26_5_2, na.rm = TRUE),
+            wild_dates = mean(q5_frt27_5_2, na.rm = TRUE),
+            coconut = mean(q5_frt28_5_2, na.rm = TRUE),
+            betel = mean(q5_frt29_5_2, na.rm = TRUE),
+            blackberry_jam = mean(q5_frt30_5_2, na.rm = TRUE),
+            water_chestnut = mean(q5_frt31_5_2, na.rm = TRUE),)
+
+mean_trees_l <- mean_trees %>% 
+  pivot_longer(!group, names_to = "tree_type", values_to = "proportion")
+```
+
+```{r Number of trees in bari graph}
+ggplot(mean_trees_l, aes(x = tree_type, y = proportion, color = group)) +
+  geom_point() +
+  labs(x = "Tree type", 
+       y = "Average # of trees in bari", 
+       title = "Average # of trees in bari by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+animal ownership (q4_#_1)
+
+```{r animal ownership table}
+# animal ownership
+animal_own <- fruit_survey %>%
+  group_by(group) %>%
+  summarize(cattle = mean(q4_1_1, na.rm = TRUE),
+            buffalo = mean(q4_2_1, na.rm = TRUE),
+            goats = mean(q4_3_1, na.rm = TRUE),
+            pigs = mean(q4_4_1, na.rm = TRUE),
+            sheep = mean(q4_5_1, na.rm = TRUE),
+            horses = mean(q4_6_1, na.rm = TRUE),
+            dogs = mean(q4_7_1, na.rm = TRUE),
+            cats = mean(q4_8_1, na.rm = TRUE))
+
+animal_own_l <- animal_own %>% 
+  pivot_longer(!group, names_to = "tree_type", values_to = "proportion")
+```
+
+```{r animal ownership graph}
+ggplot(animal_own_l, aes(x = tree_type, y = proportion, color = group)) +
+  geom_point() +
+  labs(x = "Animal type", 
+       y = "mean bari animal ownership", 
+       title = "Bari animal ownership by village type") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(name="Village type", 
+                       labels = c("control, near",
+                                  "control, far", 
+                                  "case"), 
+                       values = c("1"="blue", 
+                                  "2"="green",
+                                  "3"="red"))
+```
+
+
+```{r}
+#How many total date palm trees do people in this bari own? (q3_1)
+fruit_survey %>%
+  group_by(group) %>%
+  summarize(proportion_households = mean(q3_1, na.rm = TRUE), 
+            standard_deviation = sd(q3_1, na.rm = TRUE))
+```
+    
