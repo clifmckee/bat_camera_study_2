@@ -1,0 +1,636 @@
+---
+title: "bat_fruit_visits_EDA"
+author: "Kelly Endres"
+date: "1/13/2022"
+output: html_document
+---
+
+### Bat camera vists - fruit tree data
+
+This R Markdown covers exploratory data analysis for bat camera visits at located at fruit trees. 
+
+SUMMARIZE DATA COLLECTION METHODS. Camera trap observations were conducted over a X month period from XX/YEAR to XX/YEAR. 
+
+This exploratory data analysis will cover four sections; initial data examination and additional dataset formation, a summary of the trees and villages observed, where bats were found, and the bat feeding behavior that was observed. Analysis will often be broken down by village type, by tree species, and by both village type and tree species. 
+
+```{r load packages, echo = FALSE}
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+
+#### Initial data observations
+
+```{r import data, echo = FALSE}
+fruit_data <- readRDS(here("DATA","fruit_tree_visit_data.RDS"))
+fruit_survey <- fruit_survey <- readRDS(here("DATA", "community_resident_fruit_survey.RDS"))
+```
+
+
+```{r initial overview}
+# Examine data structure
+str(fruit_data) 
+
+head(fruit_data)
+```
+
+Overall there are 514 rows of observations across 26 variables. (Not everyrow indicates a bat visit.)
+
+```{r add village type information}
+# Combine with information on village type
+
+# Dataframe with village type information
+survey_villages_1 <- fruit_survey %>% 
+                        select(q1_6,case_control_group) #only keep village type information
+survey_villages_1 <- survey_villages_1 %>% 
+                        rename(Village_ID = q1_6)
+survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
+survey_villages_1 <- survey_villages_1[!duplicated(survey_villages_1), ] #drop duplicate observations
+survey_villages_1 <- na.omit(survey_villages_1) #drop NA values
+survey_villages_1 <- survey_villages_1 %>% 
+  mutate("dup" = duplicated(survey_villages_1$Village_ID))
+
+# Add village type information
+fruit_data_vil <- transform(fruit_data, Village_ID = as.numeric(Village_ID))
+fruit_data_vil <-
+  left_join(fruit_data,
+            survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
+
+```
+
+#### Summary of observed villages and trees
+
+*Village totals*
+
+```{r Total number of villages}
+n_distinct(fruit_data$Village_ID)
+
+fruit_data_vil %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_vil = n_distinct(Village_ID))
+  # 46 case villages, 30 far control villages, 44 near control villages
+
+fruit_data_vil %>%
+  distinct(Village_ID, .keep_all = TRUE) %>% 
+    ggplot(aes(x=factor(case_control_group))) +
+    geom_bar(stat = "count", fill = "steelblue") +
+    geom_text(stat='count', aes(label=..count..), vjust=2) +
+    theme_minimal() +
+    ggtitle("Plot of village counts by village type")
+```
+
+There are a total of 118 different villages observed. These are split between 44 case, 44 near control, and 30 far control. 
+
+*Tree observations*
+
+```{r Total number of trees}
+n_distinct(fruit_data$Tree_number)
+n_distinct(fruit_data$Tree_type)
+```
+
+There are 204 unique trees observed over 13 different tree types.
+
+```{r trees by village}
+fruit_data %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_trees = n_distinct(Tree_number)) %>% 
+  summary(num_trees)
+```
+
+The average number of trees observed per village is 1.7 (mix-max = 1-3).
+
+```{r trees observed per village type}
+village_summary_vil <- fruit_data_vil %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_tree = n_distinct(Tree_number)) %>% 
+  mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
+  rename(village_type = case_control_group)
+  # 82 trees at case villages, 50 far control villages, 76 near control villages
+village_summary_vil
+
+fruit_data_vil %>%
+  distinct(Tree_number, .keep_all = TRUE) %>% 
+    ggplot(aes(x=factor(case_control_group))) +
+    geom_bar(stat = "count", fill = "steelblue") +
+    geom_text(stat='count', aes(label=..count..), vjust=2) +
+    theme_minimal() +
+    ggtitle("Number of trees observed by village type")
+```
+
+Of the 204 trees observed, 78 were located in case villages, 50 were located in far control villages, and 76 were located in hear control villages. 
+
+```{r trees observed by tree species}
+tree_summary_vil <- fruit_data_vil %>% 
+  group_by(Tree_type) %>%
+  summarize(num_trees = n_distinct(Tree_number)) %>% 
+  mutate("percent_trees" = num_trees/sum(num_trees)*100) %>% 
+  rename(tree_type = Tree_type)
+tree_summary_vil
+  #only 5 tree types with more than 2 trees observed
+
+fruit_data_vil %>%
+  distinct(Tree_number, .keep_all = TRUE) %>% 
+    ggplot(aes(x=factor(Tree_type))) +
+    geom_bar(stat = "count", fill = "steelblue") +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    ggtitle("Number of trees observed by tree type")
+```
+
+
+```{r trees observed by village type and tree species}
+fruit_data_vil %>%
+  distinct(Tree_number, .keep_all = TRUE) %>% 
+    ggplot(aes(x=factor(case_control_group), fill = Tree_type)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    ggtitle("Number of trees observed by village type and tree species")
+```
+
+```{r trees observed by village type and tree species, rare as other}
+#replace anything outside of the 5 most common tree types with "other"
+fruit_data_vil_sum <- fruit_data_vil
+fruit_data_vil_sum[fruit_data_vil_sum == 'Tamarind' | fruit_data_vil_sum == 'Betel nut' | fruit_data_vil_sum == 'Cotton tree' | fruit_data_vil_sum == 'Fig' | fruit_data_vil_sum == 'Indian olive' | fruit_data_vil_sum == 'Jack fruit' | fruit_data_vil_sum == 'Papaya' | fruit_data_vil_sum == 'Rose apple'] <- 'Other'
+
+# trees observed by village type and tree species, rare as other
+fruit_data_vil_sum %>%
+  distinct(Tree_number, .keep_all = TRUE) %>% 
+    ggplot(aes(x=factor(case_control_group), fill = Tree_type)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of trees observed by village type and tree species", 
+            caption = "Rare trees categorized as other. This includes tamarind, papaya, \nrose apple, cotton tree, indian olive, fig, betel nut, and jack fruit.")
+```
+
+```{r additional interest}
+# % of trees in the most common types
+fruit_data_vil_sum %>%
+  group_by(Tree_type) %>%
+  summarize(num_trees = n_distinct(Tree_number)) %>% 
+  mutate("percent" = num_trees/sum(num_trees)*100)
+```
+*Summary*
+
+How were observations dispersed between villages and village type? Which trees were most commonly observed? Does this vary between villages?
+
+There are a total of 118 different villages observed, split between 44 case, 44 near control, and 30 far control villages. Of the 204 trees observed, 78 were located in case villages, 50 were located in far control villages, and 76 were located in near control villages. There are only 5 tree types with more than 2 trees observed: jujube (79), guava (42), star fruit (35), sapodilla (28), and banana (10). These account for 95.1% of trees: banana (4.9%), guava (21.5%), jujube (38.7%), sapodilla (13.7%), and star fruit (17.2%). The remaining 8 tree types account for 4.9% of trees. Case villages had more observed star fruit and sapodilla trees, no other tree types, and only 1 banana tree. 
+  
+
+#### Where are bats found
+
+```{r total number of bat visits}
+# total bat visits
+sum(fruit_data_vil$Number_of_visits)
+```
+
+There were 343 bat visits observed. However, bats may be observed multiple times if they exited and then reentered the camera frame. This would be counted as two separate visits. 
+
+```{r village bat visit}
+
+# bat visits by village
+bat_vil_tot <- fruit_data_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_visits = sum(Number_of_visits))
+
+# binary column for bat visits
+bat_vil_tot <- bat_vil_tot %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no"))
+
+# villages with no bat visits
+sum(bat_vil_tot$num_visits == 0)
+
+# Add back village type information
+bat_vil_tot <-
+  inner_join(bat_vil_tot,
+            survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
+
+village_summary_visits <- fruit_data_vil %>% 
+  group_by(case_control_group) %>% 
+  summarise(num_visits = sum(Number_of_visits)) %>% 
+  mutate("percent_visits" = num_visits/sum(num_visits)*100)
+village_summary <- cbind(village_summary_vil, village_summary_visits)
+village_summary <- subset(village_summary, select = -c(case_control_group))
+village_summary
+
+fruit_data_vil %>% 
+  filter(Number_of_visits != 0) %>% 
+   ggplot(aes(x=factor(case_control_group))) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Total number of bat visits by village type")
+
+```
+Trees at 76% (90/118) of villages did not receive a bat visit. Trees at case villages received 38 visits, at far control villages 55, and at near control villages 250. Trees at case villages received 11% of bat visits while cases villages have 39% of trees observed. Comparatively, trees at near control villages received 73% of bat visits while representing only 36% of observed trees. 
+
+```{r village bat visit percentages}
+bat_vil_tot %>% 
+  ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Villages with and without bat visits by village type")
+```
+This graph demonstrates the high percentage of villages with trees that did not receive a bat visit. 
+
+
+```{r tree type bat visit percentages}
+
+# bat visits by tree type
+bat_tree_tot <- fruit_data_vil %>% 
+  group_by(Tree_number) %>% 
+  summarize(num_visits = sum(Number_of_visits))
+
+# binary column for bat visits
+bat_tree_tot <- bat_tree_tot %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no"))
+
+# Add back tree type information
+bat_tree_tot <-
+  inner_join(bat_tree_tot,
+            fruit_data_vil %>% dplyr::select(Tree_number,Tree_type))
+bat_tree_tot <- bat_tree_tot[!duplicated(bat_tree_tot), ] #drop duplicate observations
+
+# Add back village type information
+bat_tree_tot <-
+  inner_join(bat_tree_tot,
+            fruit_data_vil %>% dplyr::select(Tree_number, case_control_group))
+bat_tree_tot <- bat_tree_tot[!duplicated(bat_tree_tot), ] #drop duplicate observations
+
+# bat visits by tree type table
+bat_tree_tot %>% 
+  group_by(Tree_type)
+
+# bat visits by tree type with visit vs. no visit
+bat_tree_tot %>% 
+  ggplot(aes(x=factor(Tree_type), fill=yn_visit)) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    #geom_text(stat='count', aes(label=..count..)) +
+    labs(title = "Trees with and without bat visits by tree type")
+
+```
+
+```{r tree type bat visits}
+# column for the percent of visits received by each tree type
+tree_summary_bat <- fruit_data_vil %>% 
+  group_by(Tree_type) %>% 
+  summarise(num_visits = sum(Number_of_visits)) %>% 
+  mutate("percent_visits" = num_visits/sum(num_visits)*100)
+
+# percent of trees of each type that received a visit
+tree_summary_bat_1 <- bat_tree_tot %>% 
+  mutate(yn_visit_num = case_when(num_visits > 0 ~ 1, TRUE ~ 0)) %>% 
+  group_by(Tree_type) %>% 
+  summarize(num_trees_with_visit = sum(yn_visit_num)) %>% 
+  mutate("percent_yes_visits" = num_trees_with_visit/sum(num_trees_with_visit)*100)
+
+# combine with overall tree numbers by type summary
+tree_summary <- cbind(tree_summary_bat, tree_summary_bat_1, tree_summary_vil)
+tree_summary <- subset(tree_summary, select = -c(tree_type))
+tree_summary
+
+# graph of tree summaries
+tree_summary$percent_trees = round(tree_summary$percent_trees)
+tree_summary$percent_visits = round(tree_summary$percent_visits)
+tree_summary$percent_yes_visits = round(tree_summary$percent_yes_visits)
+
+tree_summary %>% 
+  filter(num_visits > 0) %>% 
+  subset(select = -c(num_visits, num_trees_with_visit, num_trees, Tree_type.1)) %>% 
+  gather("percent", "value", -Tree_type) %>% 
+  ggplot(aes(Tree_type, value, fill = percent)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label=value), vjust = -0.5, position = position_dodge(.9)) +
+  facet_wrap(~Tree_type, scales = "free_x")
+
+
+```
+
+Only 6 types of trees received a bat visit: banana (217 visits, 64%), jujube (51 visits, 15%), guava (43 visit, 13%), fig (11 visits, 3%), sapodilla (20 visits, 6%), and star fruit (1 visit, 0.3%).  The above graph shows the 6 tree species that received bat visits with the percent of trees that species represents, the percent of visits that species represents, and the percent of trees of that specific species received a bat visit. While banana trees received the most visits, at 68%, these represent only 5% of total trees.
+
+
+```{r}
+# villages with no bat visits
+sum(bat_tree_tot$num_visits == 0)
+  # 171 out of 204 trees did not receive a bat visit
+
+# average number of visits per tree
+summary(bat_tree_tot)
+
+# average number of visits per tree among trees that received at least 1 bat visit
+bat_tree_tot %>% 
+  filter(yn_visit == "yes") %>% 
+  summary(bat_tree_tot)
+
+# graph of the number of bat visits per tree
+bat_tree_tot %>% 
+  filter(num_visits > 0) %>% 
+  ggplot(aes(x = case_control_group, y = num_visits, fill = Tree_type)) +
+  geom_point(aes(color = Tree_type), size=3)
+
+# box plot of bat visits per tree by village type
+bat_tree_tot %>% 
+  filter(num_visits > 0) %>% 
+  ggplot(aes(x = case_control_group, y = num_visits)) +
+  geom_boxplot()
+
+bat_tree_tot %>% 
+  ggplot(aes(x = case_control_group, y = num_visits)) +
+  geom_boxplot()
+```
+
+Only 16% of tree received a bat visit (171/204). For the trees that received a bat visit, the average number of visits was 10 (min-max: 1-115). The tree that received the most visits was a banana tree located in a near control village. This tree received 56% of the total visits.
+
+
+#### Observed bat feeding behavior
+
+```{r data for only visits}
+
+# create a dataset that removes observations with no bat visit
+fruit_data_visits <- fruit_data_vil %>% 
+  filter(Number_of_visits != 0)
+```
+
+Examine the total number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination. 
+
+```{r total visit stays and contaminations}
+
+# visits resulting in a stay
+fruit_data_visits %>% 
+  count(Number_of_stays>0)
+fruit_data_visits %>%
+   summarize(pct_stays = mean(Number_of_stays > 0))
+  
+# visits resulting in a contamination
+fruit_data_visits %>% 
+  count(Number_of_contaminations>0)
+fruit_data_visits %>%
+   summarize(pct_stays = mean(Number_of_contaminations > 0))
+
+# stays resulting in a contamination
+fruit_data_visits %>% 
+  filter(Number_of_stays > 0) %>% 
+  count(Number_of_contaminations > 0)
+fruit_data_visits %>%
+  filter(Number_of_stays > 0) %>% 
+   summarize(pct_cont = mean(Number_of_contaminations > 0))
+```
+
+Of the 334 bat visits that occurred, 66% (225/334) resulted in a stay (meaning that the duration was > 1). The majority of stays resulted in a contamination, at 88%
+
+Examine the number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination, with a breakdown by village type. 
+
+```{r visit stays and contaminations by village type}
+# visits resulting in a stay
+v_stay <- fruit_data_visits %>% 
+  group_by(case_control_group) %>% 
+  summarise(num_stays = sum(Number_of_stays)) %>% 
+  rename(case_control_group1 = case_control_group)
+
+# visits resulting in a contamination
+v_cont <- fruit_data_visits %>% 
+  group_by(case_control_group) %>% 
+  summarise(num_cont = sum(Number_of_contaminations)) %>% 
+  rename(case_control_group2 = case_control_group)
+
+# table for all variables
+visit_summary <- cbind(village_summary_visits, v_stay, v_cont)
+visit_summary <- visit_summary %>% 
+  subset(select = -c(case_control_group1, case_control_group2, percent_visits))
+visit_summary
+```
+
+Create bar charts representing the above information with fill color based on stays/contaminations that occurred.
+
+```{r visit stays and contaminations by village type graphs}
+
+# visits resulting in a stay
+fruit_data_visits %>% 
+  mutate(yn_stay = case_when(Number_of_stays == 1 ~ "1", TRUE ~ "0")) %>% 
+    ggplot(aes(x=factor(case_control_group), fill = yn_stay)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of bat visits resulting in a stay by village type")
+
+# visits resulting in a contamination
+fruit_data_visits %>% 
+  filter(Number_of_stays == 1) %>% 
+  mutate(yn_cont = case_when(Number_of_contaminations == 1 ~ "1", TRUE ~ "0")) %>% 
+    ggplot(aes(x=factor(case_control_group), fill = yn_cont)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of bat stays resulting in a contamination by village type")
+
+```
+
+About half of visits resulted in a stay for villages in case and far control villages compared to about 2/3 of visits in near control villages. The majority of stays resulted in contamination across village types. 
+  
+
+Examine the number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination, with a breakdown by tree type. 
+
+```{r visit stays and contaminations by tree type}
+# visits resulting in a stay
+v_stay_tree <- fruit_data_visits %>% 
+  group_by(Tree_type) %>% 
+  summarise(num_stays = sum(Number_of_stays)) %>% 
+  mutate("percent_stays" = num_stays/sum(num_stays)*100) %>% 
+  rename(Tree_type1 = Tree_type)
+
+# visits resulting in a contamination
+v_cont_tree <- fruit_data_visits %>% 
+  group_by(Tree_type) %>% 
+  summarise(num_cont = sum(Number_of_contaminations)) %>% 
+  mutate("percent_cont" = num_cont/sum(num_cont)*100) %>% 
+  rename(Tree_type2 = Tree_type)
+
+# table for all variables
+visit_summary_tree <- tree_summary_bat %>% 
+  filter(num_visits > 0)
+visit_summary_tree <- cbind(visit_summary_tree, v_stay_tree, v_cont_tree)
+visit_summary_tree <- visit_summary_tree %>% 
+  subset(select = -c(Tree_type1, Tree_type2))
+visit_summary_tree
+
+```
+
+Create bar charts representing the above information with fill color based on stays/contaminations that occurred.
+
+```{r visit stays and contaminations by tree type graphs}
+
+# visits resulting in a stay
+fruit_data_visits %>% 
+  mutate(yn_stay = case_when(Number_of_stays == 1 ~ "1", TRUE ~ "0")) %>% 
+    ggplot(aes(x=factor(Tree_type), fill = yn_stay)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of bat visits resulting in a stay by tree type")
+
+# visits resulting in a contamination
+fruit_data_visits %>% 
+  filter(Number_of_stays == 1) %>% 
+  mutate(yn_cont = case_when(Number_of_contaminations == 1 ~ "1", TRUE ~ "0")) %>% 
+    ggplot(aes(x=factor(Tree_type), fill = yn_cont)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of bat stays resulting in a contamination by tree type")
+
+```
+
+Examine stay and contamination durations:
+
+```{r average overall visit durations}
+
+# average stay duration for visits with a stay
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+  subset(select = c(DurStayT)) %>% 
+  summary(DurStayT) 
+
+# average contamination duration for visits with a contamination
+fruit_data_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  subset(select = c(DurContT)) %>% 
+  summary(DurContT) 
+
+# average stay duration for stays that didn't result in a contamination
+fruit_data_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations ==0) %>% 
+  subset(select = c(DurStayT)) %>% 
+  summary(DurStayT) 
+
+# average stay duration for stays that did result in a contamination
+fruit_data_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations ==1) %>% 
+  subset(select = c(DurStayT)) %>% 
+  summary(DurStayT)
+```
+
+The average stay duration for visits that resulted in a stay was on average 79.5 seconds. The average contamination duration for visits resulting in a contamination was similar at 88.6 seconds. Perhaps unsurprisingly, the average stay duration for stays that did not result in contamination was lower than for stays that did result in contamination, at 8.7 seconds and 89.6 seconds, respectively.
+
+
+```{r average duration tables by village type}
+
+# average stay duration for visits with a stay
+avg_stay <- fruit_data_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_stay_dur = mean(DurStayT), 
+            med_stay_dur = median(DurStayT))
+
+# average contamination duration for visits with a contamination
+avg_cont <- fruit_data_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_cont_dur = mean(DurContT), 
+            med_cont_dur = median(DurContT)) %>% 
+  rename(case_control_group3 = case_control_group)
+
+# average stay duration for stays that didn't result in a contamination
+avg_stay_ncont <- fruit_data_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations !=1) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_stay_ncont_dur = mean(DurContT), 
+            med_stay_ncont = median(DurContT)) %>% 
+  rename(case_control_group2 = case_control_group)
+
+# average stay duration for stays that did result in a contamination
+avg_stay_cont <- fruit_data_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations ==1) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_stay_cont_dur = mean(DurStayT), 
+            med_stay_cont = median(DurStayT)) %>% 
+  rename(case_control_group1 = case_control_group)
+
+average_duration <- cbind(avg_stay, avg_stay_ncont, avg_stay_cont, avg_cont)
+average_duration <- average_duration %>% 
+  subset(select = -c(case_control_group2, case_control_group1, case_control_group3))
+average_duration
+```
+
+```{r average duration boxplots by village type}
+
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+    ggplot(aes(x = case_control_group, y = DurStayT)) +
+    geom_point() +
+    geom_jitter()
+
+# average stay duration for visits with a stay
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0) %>%  
+  ggplot(aes(x = case_control_group, y = DurStayT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in a stay")
+
+# average stay with outliers removed
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0 & DurStayT <100) %>%  
+  ggplot(aes(x = case_control_group, y = DurStayT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in a stay, no outliers")
+
+# average contamination duration for visits with a contamination
+fruit_data_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  ggplot(aes(x = case_control_group, y = DurContT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in contamination")
+
+# average contamination duration for visits with a contamination
+fruit_data_visits %>% 
+  filter(Number_of_contaminations !=0 & DurContT <100) %>% 
+  ggplot(aes(x = case_control_group, y = DurContT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in contamination, outliers removed")
+
+```
+
+```{r average duration boxplots by tree type}
+
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+    ggplot(aes(x = Tree_type, y = DurStayT)) +
+    geom_point() +
+    geom_jitter()
+
+# average stay duration for visits with a stay
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0) %>%  
+  ggplot(aes(x = Tree_type, y = DurStayT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in a stay")
+
+# average stay with outliers removed
+fruit_data_visits %>% 
+  filter(Number_of_stays !=0 & DurStayT <100) %>%  
+  ggplot(aes(x = Tree_type, y = DurStayT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in a stay, no outliers")
+
+# average contamination duration for visits with a contamination
+fruit_data_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  ggplot(aes(x = Tree_type, y = DurContT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in contamination")
+
+# average contamination duration for visits with a contamination
+fruit_data_visits %>% 
+  filter(Number_of_contaminations !=0 & DurContT <100) %>% 
+  ggplot(aes(x = Tree_type, y = DurContT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in contamination, outliers removed")
+```
+
+
