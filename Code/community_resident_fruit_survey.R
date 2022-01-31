@@ -34,6 +34,10 @@ survey[survey$dataid == "105806",]$q1_6 <- "1058"
 
 # Correct village survey data
 survey_correct <- survey %>%
+  # Remove duplicated rows (village 1052 had duplicated participants)
+  # For example, `dataid` 105201 showed up twice with two different interview dates
+  # The only thing that was different was the interview date, all other recorded data was identical
+  filter(!duplicated(survey$dataid)) %>%
   # Correct village ID
   mutate(correct_villid = as.numeric(substring(dataid, 1, 4))) %>%
   # Make new column for case/control group
