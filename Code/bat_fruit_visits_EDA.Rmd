@@ -9,8 +9,6 @@ output: html_document
 
 This R Markdown covers exploratory data analysis for bat camera visits at located at fruit trees. 
 
-SUMMARIZE DATA COLLECTION METHODS. Camera trap observations were conducted over a X month period from XX/YEAR to XX/YEAR. 
-
 This exploratory data analysis will cover four sections; initial data examination and additional dataset formation, a summary of the trees and villages observed, where bats were found, and the bat feeding behavior that was observed. Analysis will often be broken down by village type, by tree species, and by both village type and tree species. 
 
 ```{r load packages, echo = FALSE}

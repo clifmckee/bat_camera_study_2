@@ -88,3 +88,6 @@ palm_data <- rbind(palm_data_1, palm_data_2) %>%
                           Year == 2011 ~ 2011,
                           Year == 2012 ~ 2012,
                           Year == 2013 ~ 2013))
+
+# save fruit tree visit data
+saveRDS(palm_data, file= here("Data", "date_palm_visit_data.RDS"))
