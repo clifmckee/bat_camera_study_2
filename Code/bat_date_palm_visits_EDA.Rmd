@@ -1,0 +1,168 @@
+---
+title: "Bat date palm visits EDA"
+author: "Kelly Endres"
+date: "1/24/2022"
+output: html_document
+---
+
+*Still WIP*
+
+Bat camera vists - date palm  data
+
+This R Markdown covers exploratory data analysis for bat camera visits at located at date palm trees. Date palm trees were observed at villages where date palm sap collection was reported. 
+
+This exploratory data analysis will cover four sections; initial data examination and additional dataset formation, a summary of the trees and villages observed, where bats were found, and the bat feeding behavior that was observed. 
+
+```{r load packages, message = FALSE}
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(naniar)
+library(gtsummary)
+```
+
+#### Initial data observations
+
+```{r import data}
+date_palm_data <- readRDS(here("DATA","date_palm_visit_data.RDS"))
+fruit_survey <- fruit_survey <- readRDS(here("DATA", "community_resident_fruit_survey.RDS"))
+```
+
+```{r Examine data structure}
+# Examine data structure
+str(date_palm_data) 
+
+head(date_palm_data)
+```
+
+Dataset includes 8097 rows of information across 27 varibles
+
+```{r add village type information}
+# Combine with information on village type
+
+# Dataframe with village type information
+survey_villages_1 <- fruit_survey %>% 
+                        select(correct_villid,case_control_group) #only keep village type information
+survey_villages_1 <- survey_villages_1 %>% 
+                        rename(Village_ID = correct_villid)
+survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
+survey_villages_1 <- survey_villages_1[!duplicated(survey_villages_1), ] #drop duplicate observations
+survey_villages_1 <- na.omit(survey_villages_1) #drop NA values
+survey_villages_1 <- survey_villages_1 %>% 
+  mutate("dup" = duplicated(survey_villages_1$Village_ID))
+
+date_palm_vil <- transform(date_palm_data, Village_ID = as.numeric(Village_ID))
+date_palm_vil <-
+  left_join(date_palm_data,
+            survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
+
+```
+
+#### Summary of observed villages and trees
+
+*Village totals*
+
+```{r Total number of villages}
+n_distinct(date_palm_vil$Village_ID)
+
+date_palm_vil %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_vil = n_distinct(Village_ID))
+  # 14 case villages, 20 far control villages, 14 near control villages
+```
+There are 44 villages with date palm tree observations; 14 case villages, 14 near control villages, and 20 far control villages.
+
+*Tree observations*
+
+```{r Total number of trees}
+n_distinct(date_palm_vil$Tree_number)
+n_distinct(date_palm_vil$Tree_type)
+#Why 4 tree types?
+
+unique(date_palm_vil$Tree_type)
+# Two rows again with NAs
+
+date_palm_vil <- date_palm_vil %>% 
+  mutate(correctTree_type = case_when(!is.na(Tree_type) ~ "Date palm", 
+                             TRUE ~ "NA")) %>% 
+  replace_with_na(correctTree_type, replace = list(correctTree_type = "NA"))
+
+unique(date_palm_vil$correctTree_type)
+
+```
+
+**DESCRIPTION**
+
+```{r trees by village}
+date_palm_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_trees = n_distinct(Tree_number)) %>% 
+  summary(num_trees)
+```
+
+```{r}
+date_palm_vil %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_tree = n_distinct(Tree_number)) %>% 
+  mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
+  rename(village_type = case_control_group)
+  # 22 trees at case villages, 38 far control villages, 26 near control villages
+```
+#### Where are bats found
+
+```{r total number of bat visits}
+# total bat visits
+date_palm_vil %>%
+      group_by(Number_of_visits) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+```{r}
+# bat visits by village
+bat_vil_tot <- date_palm_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  inner_join(survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
+
+# villages with no bat visits
+bat_vil_tot %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+
+# visits by village type 
+date_palm_vil %>%
+      group_by(case_control_group) %>%
+      summarise(n = sum(Number_of_visits)) %>% 
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+
+
+```
+
+```{r}
+bat_vil_tot %>% 
+  ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Villages with and without bat visits by village type")
+```
+
+
+
+- number of trees that did/did not receive visits, overall and by village type 
+- villages that didn't receive a bat visit by village type 
+- box plot of bat visits per tree by village type
+
+#### Observed bat feeding behavior
+- visit stays and contaminations, overall and by village type
+- figure out what to do with the rest of that stuff 

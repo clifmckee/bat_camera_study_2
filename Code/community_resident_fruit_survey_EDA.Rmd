@@ -413,6 +413,7 @@ Additional comparison graphs are displayed for the 6 fruit species that had bat 
 _Clif: As far as I can tell, fig doesn't show up in the survey. The local name for fig is "dumur". Other fruit trees that show up in the camera data but not the survey data include tamarind ("tetul") and cotton tree ("shimul")._
 
 ```{r banana fruit consumption comparison, echo=FALSE, fig.height = 7, fig.width = 7, fig.align = "center"}
+
 # join all the tables together and calculate the average proportion across all columns
 fruit_consumption_grouped <- full_join(h_fruit_grouped, h_dropped_grouped) %>%
   full_join(a_dropped_grouped) %>%

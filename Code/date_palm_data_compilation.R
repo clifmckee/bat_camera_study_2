@@ -36,7 +36,6 @@ palm_names <- c("Village_ID",
                 "Number_of_stays",
                 "Number_of_contaminations",
                 "AM_PM")
-
 # Find all file names in year 1 date palm directory
 year1_palm_path <- "./Data/Village case control tree data - year 1/Date palm trees"
 year1_palm <- list.files(path = year1_palm_path,
@@ -89,5 +88,79 @@ palm_data <- rbind(palm_data_1, palm_data_2) %>%
                           Year == 2012 ~ 2012,
                           Year == 2013 ~ 2013))
 
+## Additional data checks
+
+# Check that the number of visits = 1 if duration of stay > 0
+flagged <-palm_data %>% 
+  filter((is.na(Number_of_visits) | Number_of_visits==0) & DurStayT>0)
+# 56 observations
+
+# Replace number of visits as 1 instead of 0
+palm_data_update <- palm_data %>% 
+  mutate(Number_of_visits = case_when(
+    (is.na(Number_of_visits) | Number_of_visits==0) & DurStayT>0 ~ 1, 
+    TRUE~Number_of_visits))
+
+# Check that the number of stays = 1 if duration of stay > 1
+flagged_1 <- palm_data %>% 
+  filter((is.na(Number_of_stays) | Number_of_stays==0) & DurStayT>1)
+# 11 observations
+
+# Replace number of stays as 1 instead of 0
+palm_data_update <- palm_data_update %>% 
+  mutate(Number_of_stays = case_when(
+    (is.na(Number_of_stays) | Number_of_stays==0) & DurStayT>1 ~ 1, 
+    TRUE~Number_of_stays))
+
+
+# Check that the number of visits = 1 if the number of stays = 1
+flagged_2 <- palm_data_update %>% 
+  filter((is.na(Number_of_visits) | Number_of_visits==0) & Number_of_stays==1)
+# 0 observations
+
+# Check that the number of contaminations = 1 only if the number of stays = 1
+flagged_3 <- palm_data_update %>% 
+  filter(Number_of_contaminations==1 & Number_of_stays==0)
+# 411 observations
+
+# Replace number of contamination as 0 instead of 1
+palm_data_update <- palm_data_update %>% 
+  mutate(Number_of_contaminations = case_when(
+    Number_of_contaminations==1 & Number_of_stays==0 ~ 0, 
+    TRUE~Number_of_contaminations))
+
+# Check that duration of contamination is never larger than duration of stay
+flagged_4 <- palm_data_update %>% 
+  filter(DurContT>DurStayT)
+# 2 observations
+
+# Replace the duration of contamination with the duration of stay
+palm_data_update <- palm_data_update %>% 
+  mutate(DurContT = case_when(
+    DurContT>DurStayT ~ DurStayT, 
+    TRUE~DurContT))
+
+# final check for NA values
+palm_data_update %>%
+  select(Number_of_visits, Number_of_stays, Number_of_contaminations, DurContT, DurStayT) %>% 
+  summarise_all(funs(sum(is.na(.))))
+
+flagged_5 <- palm_data_update %>% 
+  filter(is.na(Number_of_stays))
+
+palm_data_update <- palm_data_update %>% 
+  mutate(Number_of_stays = case_when(
+    DurStayT==1 & is.na(Number_of_stays) ~ 0, 
+    TRUE~Number_of_stays))
+
+flagged_5 <- palm_data_update %>% 
+  filter(is.na(Number_of_contaminations))
+
+palm_data_update <- palm_data_update %>% 
+  mutate(Number_of_contaminations = case_when(
+    DurContT>1 & is.na(Number_of_contaminations) ~ 1, 
+    DurContT==0 & is.na(Number_of_contaminations) ~ 0,
+    TRUE~Number_of_contaminations))
+
 # save fruit tree visit data
-saveRDS(palm_data, file= here("Data", "date_palm_visit_data.RDS"))
+saveRDS(palm_data_update, file= here("Data", "date_palm_visit_data.RDS"))

@@ -11,7 +11,7 @@ This R Markdown covers exploratory data analysis for bat camera visits at locate
 
 This exploratory data analysis will cover four sections; initial data examination and additional dataset formation, a summary of the trees and villages observed, where bats were found, and the bat feeding behavior that was observed. Analysis will often be broken down by village type, by tree species, and by both village type and tree species. 
 
-```{r load packages, echo = FALSE}
+```{r load packages, message=FALSE}
 library(here)
 library(dplyr)
 library(ggplot2)
@@ -21,7 +21,7 @@ library(tidyr)
 
 #### Initial data observations
 
-```{r import data, echo = FALSE}
+```{r import data}
 fruit_data <- readRDS(here("DATA","fruit_tree_visit_data.RDS"))
 fruit_survey <- fruit_survey <- readRDS(here("DATA", "community_resident_fruit_survey.RDS"))
 ```
@@ -34,16 +34,16 @@ str(fruit_data)
 head(fruit_data)
 ```
 
-Overall there are 514 rows of observations across 26 variables. (Not everyrow indicates a bat visit.)
+Overall there are 514 rows of observations across 26 variables. (Not every row indicates a bat visit.)
 
-```{r add village type information}
+```{r add village type information, message=FALSE}
 # Combine with information on village type
 
 # Dataframe with village type information
 survey_villages_1 <- fruit_survey %>% 
-                        select(q1_6,case_control_group) #only keep village type information
+                        select(correct_villid,case_control_group) #only keep village type information
 survey_villages_1 <- survey_villages_1 %>% 
-                        rename(Village_ID = q1_6)
+                        rename(Village_ID = correct_villid)
 survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
 survey_villages_1 <- survey_villages_1[!duplicated(survey_villages_1), ] #drop duplicate observations
 survey_villages_1 <- na.omit(survey_villages_1) #drop NA values
@@ -69,14 +69,6 @@ fruit_data_vil %>%
   group_by(case_control_group) %>% 
   summarize(num_vil = n_distinct(Village_ID))
   # 46 case villages, 30 far control villages, 44 near control villages
-
-fruit_data_vil %>%
-  distinct(Village_ID, .keep_all = TRUE) %>% 
-    ggplot(aes(x=factor(case_control_group))) +
-    geom_bar(stat = "count", fill = "steelblue") +
-    geom_text(stat='count', aes(label=..count..), vjust=2) +
-    theme_minimal() +
-    ggtitle("Plot of village counts by village type")
 ```
 
 There are a total of 118 different villages observed. These are split between 44 case, 44 near control, and 30 far control. 
@@ -226,6 +218,9 @@ fruit_data_vil %>%
 ```
 Trees at 76% (90/118) of villages did not receive a bat visit. Trees at case villages received 38 visits, at far control villages 55, and at near control villages 250. Trees at case villages received 11% of bat visits while cases villages have 39% of trees observed. Comparatively, trees at near control villages received 73% of bat visits while representing only 36% of observed trees. 
 
+
+This graph demonstrates the high percentage of villages with trees that did not receive a bat visit. 
+
 ```{r village bat visit percentages}
 bat_vil_tot %>% 
   ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
@@ -234,8 +229,6 @@ bat_vil_tot %>%
     theme_minimal() +
     labs(title = "Villages with and without bat visits by village type")
 ```
-This graph demonstrates the high percentage of villages with trees that did not receive a bat visit. 
-
 
 ```{r tree type bat visit percentages}
 
