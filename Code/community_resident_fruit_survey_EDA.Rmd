@@ -88,8 +88,8 @@ Fruit survey dataset includes 206 villages and 5056 respondents. Of the 206 vill
 There are four main questions that assess fruit consumption by bari members, bats, and animals separated by tree type. 
 - Do members of your bari eat any [insert fruit] off the ground? (q5_frt#_5_4)
 - Do members of your bari eat any [insert fruit]? (q5_frt#_5_3)
-- Do domestic mammals (cow,sheep,goat,pig,dog,cat)eat [insert fruit] jam off ground?
-- Do bats eat any [insert fruit]?
+- Do domestic mammals (cow,sheep,goat,pig,dog,cat)eat [insert fruit] jam off ground? (q5_frt#_5_5)
+- Do bats eat any [insert fruit]? (q5_frt#_5_7)
 
 Table of reported overall consumption by tree type for the above questions:
 
@@ -155,7 +155,7 @@ a_dropped_total <- a_dropped_fruit %>%
 
 ```{r bat fruit consumption}
 # create some vectors of column names for bat fruit consumption
-bat_fruit_cols <- paste0("q5_frt", seq(1:31), "_5_5")
+bat_fruit_cols <- paste0("q5_frt", seq(1:31), "_5_7")
 
 # filter survey to just the bat fruit columns and rename them with fruit names
 bat_fruit <- fruit_survey %>%

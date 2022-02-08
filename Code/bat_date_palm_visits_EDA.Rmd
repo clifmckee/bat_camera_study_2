@@ -71,7 +71,7 @@ date_palm_vil %>%
   summarize(num_vil = n_distinct(Village_ID))
   # 14 case villages, 20 far control villages, 14 near control villages
 ```
-There are 44 villages with date palm tree observations; 14 case villages, 14 near control villages, and 20 far control villages.
+There are 48 villages with date palm tree observations; 14 case villages, 14 near control villages, and 20 far control villages.
 
 *Tree observations*
 
@@ -92,23 +92,25 @@ unique(date_palm_vil$correctTree_type)
 
 ```
 
-**DESCRIPTION**
+There are 85 unique trees observed.
 
 ```{r trees by village}
+# trees observed by village
 date_palm_vil %>% 
   group_by(Village_ID) %>% 
   summarize(num_trees = n_distinct(Tree_number)) %>% 
   summary(num_trees)
-```
 
-```{r}
+# trees observed by village type
 date_palm_vil %>% 
   group_by(case_control_group) %>% 
   summarize(num_tree = n_distinct(Tree_number)) %>% 
   mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
   rename(village_type = case_control_group)
-  # 22 trees at case villages, 38 far control villages, 26 near control villages
 ```
+
+The average number of trees observed per village is 1.8 (mix-max = 1-2). 25% of tree were observed at case villages (22 trees), 44% at far control villages (38 trees), and 30% at near control villages (26 trees). 
+
 #### Where are bats found
 
 ```{r total number of bat visits}
@@ -120,6 +122,8 @@ date_palm_vil %>%
              percent = round((n / sum(n)), 3),
              cumpercent = round(cumsum(freq = n / sum(n)),3))
 ```
+
+There were 8072 bat visits observed. However, bats may be observed multiple times if they exited and then reentered the camera frame. This would be counted as two separate visits. 
 
 ```{r}
 # bat visits by village
@@ -148,6 +152,8 @@ date_palm_vil %>%
 
 ```
 
+Date palms at 85% (41/48) of villages received a bat visit. Date palms at case villages received 80% (6454) visits, at far control villages 5.5% (446), and at near control villages 14.5% (1172). Trees at case villages received 80% of bat visits while cases villages have 25% of trees observed. Comparatively, trees at near control villages received 14.5% of bat visits while representing 30% of observed trees. 
+
 ```{r}
 bat_vil_tot %>% 
   ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
@@ -158,11 +164,259 @@ bat_vil_tot %>%
 ```
 
 
+```{r}
+# bat visits by tree
+bat_tree_tot <- date_palm_vil %>% 
+  group_by(Tree_number) %>% 
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no"))
+  #figure out what to do with NAs for tree type
 
-- number of trees that did/did not receive visits, overall and by village type 
-- villages that didn't receive a bat visit by village type 
-- box plot of bat visits per tree by village type
+# Add back village type information
+# Dataframe with village type information for each tree
+tree_vil_info <- date_palm_vil %>% 
+                        select(Tree_number,case_control_group)
+tree_vil_info <- tree_vil_info[!duplicated(tree_vil_info), ]
+tree_vil_info <- na.omit(tree_vil_info)
+bat_tree_tot <-
+  left_join(bat_tree_tot,
+            tree_vil_info %>% dplyr::select(Tree_number, case_control_group))
+
+# trees with no bat visits
+bat_tree_tot %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+
+# trees with no bat visits by village type
+bat_tree_tot %>%
+      group_by(case_control_group, yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+
+# average number of visits per tree (for trees with visits)
+bat_tree_tot %>% 
+  filter(num_visits > 0) %>% 
+  select(num_visits) %>% 
+  summary()
+
+# average number of visits per tree (for trees with visits), by village type
+bat_tree_tot %>% 
+  filter(num_visits > 0) %>% 
+  group_by(case_control_group) %>% 
+  summarize(min = min(num_visits),
+            q1 = quantile(num_visits, 0.25),
+            median = median(num_visits),
+            mean = mean(num_visits),
+            q3 = quantile(num_visits, 0.75),
+            max = max(num_visits))
+```
+
+Of the 85 trees observed, 71% (61/85) received a bat visit. In case villages, 81% of trees received a bat visit, compared to 62% in far controls and 77% in near control villages. Among trees that received at least one bat visit, the average number of visits was 132. The most visits received by one tree was 5544 at a case village. The average number of visits per tree was highest in case villages (363), followed by near control villages (58) and far control villages (18). 
+
+```{r}
+# box plot of bat visits per tree by village type, no outlier
+bat_tree_tot %>% 
+  na.omit() %>% 
+  filter(num_visits > 0 & num_visits < 5544) %>% 
+  ggplot(aes(x = case_control_group, y = num_visits)) +
+  geom_boxplot()
+
+# including trees with no visits and outlier
+bat_tree_tot %>% 
+  ggplot(aes(x = case_control_group, y = num_visits)) +
+  geom_boxplot()
+```
 
 #### Observed bat feeding behavior
-- visit stays and contaminations, overall and by village type
-- figure out what to do with the rest of that stuff 
+
+
+```{r data for only visits}
+# create a dataset that removes observations with no bat visit
+date_palm_visits <- date_palm_vil %>% 
+  filter(Number_of_visits != 0)
+```
+
+Examine the total number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination. 
+
+```{r total visit stays and contaminations}
+
+# visits resulting in a stay
+date_palm_visits %>%
+   summarize(pct_stays = mean(Number_of_stays), 
+             n_stay = sum(Number_of_stays), 
+             n_not_stay = sum(Number_of_stays == 0))
+
+# visits resulting in a contamination
+date_palm_visits %>%
+   summarize(pct_cont = mean(Number_of_contaminations), 
+             n_cont = sum(Number_of_contaminations), 
+             n_not_cont = sum(Number_of_contaminations == 0))
+
+# stays resulting in a contamination
+date_palm_visits %>%
+  filter(Number_of_stays > 0) %>% 
+  summarize(pct_cont = mean(Number_of_contaminations), 
+            n_cont = sum(Number_of_contaminations), 
+            n_not_cont = sum(Number_of_contaminations == 0))
+```
+
+Overall 63% of visits resulted in a stay (5106/8072), 57% of visits resulted in a contamination (4626/8072), and 91% of stays resulted in a contamination (4626/5106).
+
+Examine the number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination, with a breakdown by village type. 
+
+```{r visit stays and contaminations by village type}
+
+# trees with no bat visits by village type
+date_palm_visits %>%
+      group_by(case_control_group) %>%
+      summarise(pct_stays = mean(Number_of_stays), 
+                n_stay = sum(Number_of_stays), 
+                n_not_stay = sum(Number_of_stays == 0), 
+                pct_cont = mean(Number_of_contaminations), 
+                n_cont = sum(Number_of_contaminations), 
+                n_not_cont = sum(Number_of_contaminations == 0), 
+                pct_stay_cont = mean(ifelse(Number_of_stays == 1, Number_of_contaminations, NA), na.rm = T), 
+                n_stay_cont = sum(ifelse(Number_of_stays == 1, Number_of_contaminations, NA), na.rm = T), 
+                n_stay_not_cont = sum(ifelse(Number_of_stays == 1, Number_of_contaminations == 0, NA), na.rm = T))
+```
+
+Interestingly, the percent of visits that resulted in a stay and the percent of visits that resulted in a contamination was lowest for case villages compared to far control and near control villages. The majority of stays resulted in contamination in all three village types. 
+
+Create bar charts representing the above information with fill color based on stays/contaminations that occurred.
+
+```{r visit stays and contaminations by village type graphs}
+
+# visits resulting in a stay
+date_palm_visits %>% 
+  mutate(yn_stay = case_when(Number_of_stays == 1 ~ "1", TRUE ~ "0")) %>% 
+    ggplot(aes(x=factor(case_control_group), fill = yn_stay)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of bat visits resulting in a stay by village type")
+
+# visits resulting in a contamination
+date_palm_visits %>% 
+  filter(Number_of_stays == 1) %>% 
+  mutate(yn_cont = case_when(Number_of_contaminations == 1 ~ "1", TRUE ~ "0")) %>% 
+    ggplot(aes(x=factor(case_control_group), fill = yn_cont)) +
+    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(stat = "count") +
+    theme_minimal() +
+    labs(title = "Number of bat stays resulting in a contamination by village type")
+
+```
+
+Examine stay and contamination durations:
+
+```{r average overall visit durations}
+
+# average stay duration for visits with a stay
+date_palm_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+  select(DurStayT) %>% 
+  summary() 
+
+# average contamination duration for visits with a contamination
+date_palm_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  select(DurContT) %>% 
+  summary() 
+
+# average stay duration for stays that didn't result in a contamination
+date_palm_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations ==0) %>% 
+  select(DurStayT) %>% 
+  summary() 
+
+# average stay duration for stays that did result in a contamination
+date_palm_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations ==1) %>% 
+  select(DurStayT) %>% 
+  summary()
+```
+
+The median stay duration was 6s (IQR: 2-40, max: 21604). The median contamination duration was similar at 5s (IQR: 1-31, max: 21603). Interestingly, the average duration of a stay was higher for stays that did not result in contamination (39s) compared stays that DID result in a contamination (6s).
+
+```{r average duration tables by village type}
+
+# average stay duration for visits with a stay
+avg_stay <- date_palm_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_stay_dur = mean(DurStayT), 
+            med_stay_dur = median(DurStayT))
+
+# average contamination duration for visits with a contamination
+avg_cont <- date_palm_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_cont_dur = mean(DurContT), 
+            med_cont_dur = median(DurContT)) %>% 
+  rename(case_control_group3 = case_control_group)
+
+# average stay duration for stays that didn't result in a contamination
+avg_stay_ncont <- date_palm_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations !=1) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_stay_ncont_dur = mean(DurContT), 
+            med_stay_ncont = median(DurContT)) %>% 
+  rename(case_control_group2 = case_control_group)
+
+# average stay duration for stays that did result in a contamination
+avg_stay_cont <- date_palm_visits %>% 
+  filter(Number_of_stays==1 & Number_of_contaminations ==1) %>% 
+  group_by(case_control_group) %>% 
+  summarize(avg_stay_cont_dur = mean(DurStayT), 
+            med_stay_cont = median(DurStayT)) %>% 
+  rename(case_control_group1 = case_control_group)
+
+average_duration <- cbind(avg_stay, avg_cont, avg_stay_ncont, avg_stay_cont)
+average_duration <- average_duration %>% 
+  subset(select = -c(case_control_group2, case_control_group1, case_control_group3))
+average_duration
+```
+Stay and contamination durations were highest in far control villages compared to case and near control villages. 
+
+```{r average duration boxplots by village type}
+
+date_palm_visits %>% 
+  filter(Number_of_stays !=0) %>% 
+    ggplot(aes(x = case_control_group, y = DurStayT)) +
+    geom_point() +
+    geom_jitter()
+
+# average stay duration for visits with a stay
+date_palm_visits %>% 
+  filter(Number_of_stays !=0) %>%  
+  ggplot(aes(x = case_control_group, y = DurStayT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in a stay")
+
+# average stay with outliers removed
+date_palm_visits %>% 
+  filter(Number_of_stays !=0 & DurStayT <10000) %>%  
+  ggplot(aes(x = case_control_group, y = DurStayT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in a stay, no outliers")
+
+# average contamination duration for visits with a contamination
+date_palm_visits %>% 
+  filter(Number_of_contaminations !=0) %>% 
+  ggplot(aes(x = case_control_group, y = DurContT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in contamination")
+
+# average contamination duration for visits with a contamination
+date_palm_visits %>% 
+  filter(Number_of_contaminations !=0 & DurContT <10000) %>% 
+  ggplot(aes(x = case_control_group, y = DurContT)) +
+  geom_boxplot() +
+  labs(title = "Median stay duration for visits that resulted in contamination, outliers removed")
+
+```

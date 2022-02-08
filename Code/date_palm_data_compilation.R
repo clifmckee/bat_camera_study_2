@@ -90,6 +90,23 @@ palm_data <- rbind(palm_data_1, palm_data_2) %>%
 
 ## Additional data checks
 
+checks <- palm_data %>% 
+  mutate(issues1 = case_when(is.na(Tree_number) ~ 1, TRUE ~ 0))
+
+checks <- checks %>% 
+  mutate(issues2 = case_when(is.na(Number_of_visits) ~ 1, TRUE ~ 0))                         
+
+checks <- checks %>% 
+  mutate(issues3 = case_when(is.na(Number_of_stays) ~ 1, TRUE ~ 0))  
+
+checks <- checks %>% 
+  mutate(issues4 = case_when(is.na(Number_of_contaminations) ~ 1, TRUE ~ 0))  
+
+final_issues <-  checks %>% 
+  filter(issues1 == 1 | issues2 == 1 | issues3 == 1 | issues4 == 1)
+
+write.csv(final_issues, here("Data","date_palm_issues.csv"))
+
 # Check that the number of visits = 1 if duration of stay > 0
 flagged <-palm_data %>% 
   filter((is.na(Number_of_visits) | Number_of_visits==0) & DurStayT>0)
