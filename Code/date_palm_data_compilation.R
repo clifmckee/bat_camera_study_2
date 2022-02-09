@@ -37,7 +37,7 @@ palm_names <- c("Village_ID",
                 "Number_of_contaminations",
                 "AM_PM")
 # Find all file names in year 1 date palm directory
-year1_palm_path <- "./Data/Village case control tree data - year 1/Date palm trees"
+year1_palm_path <- here("./Data/Village case control tree data - year 1/Date palm trees")
 year1_palm <- list.files(path = year1_palm_path,
                          pattern = "xls")
 
@@ -56,7 +56,7 @@ for(i in 1:length(year1_palm)){
 }
 
 # Find all file names in year 2 date palm directory
-year2_palm_path <- "./Data/Village case control tree data - year 2/Date palm trees"
+year2_palm_path <- here("./Data/Village case control tree data - year 2/Date palm trees")
 year2_palm <- list.files(path = year2_palm_path,
                          pattern = "xls")
 
@@ -129,7 +129,6 @@ palm_data_update <- palm_data_update %>%
     (is.na(Number_of_stays) | Number_of_stays==0) & DurStayT>1 ~ 1, 
     TRUE~Number_of_stays))
 
-
 # Check that the number of visits = 1 if the number of stays = 1
 flagged_2 <- palm_data_update %>% 
   filter((is.na(Number_of_visits) | Number_of_visits==0) & Number_of_stays==1)
@@ -181,3 +180,4 @@ palm_data_update <- palm_data_update %>%
 
 # save fruit tree visit data
 saveRDS(palm_data_update, file= here("Data", "date_palm_visit_data.RDS"))
+write.csv(palm_data_update, file = here("Data", "data_palm_visit_data.csv"))
