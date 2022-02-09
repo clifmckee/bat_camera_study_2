@@ -57,6 +57,8 @@ date_palm_vil <-
   left_join(date_palm_data,
             survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
 
+saveRDS(date_palm_vil, file= here("Data", "date_palm_with_villages.RDS"))
+
 ```
 
 #### Summary of observed villages and trees
@@ -143,12 +145,19 @@ bat_vil_tot %>%
 
 # visits by village type 
 date_palm_vil %>%
-      group_by(case_control_group) %>%
-      summarise(n = sum(Number_of_visits)) %>% 
-      mutate(totalN = (cumsum(n)),
-             percent = round((n / sum(n)), 3),
-             cumpercent = round(cumsum(freq = n / sum(n)),3))
+  group_by(case_control_group) %>%
+  summarise(n = sum(Number_of_visits)) %>% 
+  mutate(totalN = (cumsum(n)),
+         percent = round((n / sum(n)), 3),
+         cumpercent = round(cumsum(freq = n / sum(n)),3))
 
+date_palm_vil %>%
+  filter(Tree_number != "3038.ICT1") %>% 
+  group_by(case_control_group) %>%
+  summarise(n = sum(Number_of_visits)) %>% 
+  mutate(totalN = (cumsum(n)),
+         percent = round((n / sum(n)), 3),
+         cumpercent = round(cumsum(freq = n / sum(n)),3))
 
 ```
 
@@ -206,7 +215,7 @@ bat_tree_tot %>%
 
 # average number of visits per tree (for trees with visits), by village type
 bat_tree_tot %>% 
-  filter(num_visits > 0) %>% 
+  filter(num_visits > 0) %>%
   group_by(case_control_group) %>% 
   summarize(min = min(num_visits),
             q1 = quantile(num_visits, 0.25),
@@ -214,6 +223,9 @@ bat_tree_tot %>%
             mean = mean(num_visits),
             q3 = quantile(num_visits, 0.75),
             max = max(num_visits))
+
+bat_tree_tot %>% 
+  filter(num_visits > 5000)
 ```
 
 Of the 85 trees observed, 71% (61/85) received a bat visit. In case villages, 81% of trees received a bat visit, compared to 62% in far controls and 77% in near control villages. Among trees that received at least one bat visit, the average number of visits was 132. The most visits received by one tree was 5544 at a case village. The average number of visits per tree was highest in case villages (363), followed by near control villages (58) and far control villages (18). 
@@ -280,9 +292,12 @@ date_palm_visits %>%
                 pct_cont = mean(Number_of_contaminations), 
                 n_cont = sum(Number_of_contaminations), 
                 n_not_cont = sum(Number_of_contaminations == 0), 
-                pct_stay_cont = mean(ifelse(Number_of_stays == 1, Number_of_contaminations, NA), na.rm = T), 
-                n_stay_cont = sum(ifelse(Number_of_stays == 1, Number_of_contaminations, NA), na.rm = T), 
-                n_stay_not_cont = sum(ifelse(Number_of_stays == 1, Number_of_contaminations == 0, NA), na.rm = T))
+                pct_stay_cont = mean(ifelse(Number_of_stays == 1, 
+                                            Number_of_contaminations, NA), na.rm = T), 
+                n_stay_cont = sum(ifelse(Number_of_stays == 1, 
+                                         Number_of_contaminations, NA), na.rm = T), 
+                n_stay_not_cont = sum(ifelse(Number_of_stays == 1, 
+                                             Number_of_contaminations == 0, NA), na.rm = T))
 ```
 
 Interestingly, the percent of visits that resulted in a stay and the percent of visits that resulted in a contamination was lowest for case villages compared to far control and near control villages. The majority of stays resulted in contamination in all three village types. 

@@ -1,0 +1,215 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+To present in meeting 2/16
+
+```{r load packages, message = FALSE}
+# load packages
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+```{r import data}
+#load data
+date_palm_vil <- readRDS(here("DATA","date_palm_with_villages.RDS"))
+fruit_data_vil <- readRDS(here("Data", "fruit_tree_with_villages.RDS"))
+```
+
+
+Part 1. Date palm visits overview
+
+Villages and and date palm trees observed:
+
+```{r villages and trees observed}
+# examine number of villages and number of trees observed 
+date_palm_vil %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_vil = n_distinct(Village_ID),
+            num_tree = n_distinct(Tree_number)) %>% 
+  mutate("perc_vil" = num_vil/sum(num_vil)*100, 
+         "perc_tree" = num_tree/sum(num_tree)) 
+  
+```
+
+Camera trap visits to date palm trees across village types:
+
+```{r visits by village type}
+# visits by village type 
+date_palm_vil %>%
+  group_by(case_control_group) %>%
+  summarise(n = sum(Number_of_visits)) %>% 
+  mutate(totalN = (cumsum(n)),
+         percent = round((n / sum(n)), 3),
+         cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+After one outlier tree at a case village is removed, case villages no longer received the most visits:
+
+```{r visits by village type, no outlier}
+# visits by village type without outlier
+date_palm_vil %>%
+  filter(Tree_number != "3038.ICT1") %>% 
+  group_by(case_control_group) %>%
+  summarise(n = sum(Number_of_visits)) %>% 
+  mutate(totalN = (cumsum(n)),
+         percent = round((n / sum(n)), 3),
+         cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+Create tables for village and tree totals:
+
+```{r tables for visits by village and by tree, message=FALSE}
+# bat visits by village
+bat_vil_tot <- date_palm_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  mutate(yn_visit_num = case_when(num_visits > 0 ~ 1, TRUE ~ 0)) %>% 
+  inner_join(date_palm_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  distinct() 
+
+# bat visits by tree
+bat_tree_tot <- date_palm_vil %>% 
+  group_by(Tree_number) %>% 
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  left_join(date_palm_vil %>% dplyr::select(Tree_number, case_control_group)) %>% 
+  distinct()
+```
+
+Boxplot of bat visits per tree, by village type:
+
+```{r boxplot of tree visits by village type}
+# including trees with no visits and outlier
+bat_tree_tot %>% 
+  ggplot(aes(x = case_control_group, y = num_visits)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(x = "Village type",
+       y = "Number of visits",
+       title = "Number of bat visits to each date palm tree by village type") 
+```
+
+Boxplot of bat visits per tree, by village type with outlier tree removed:
+
+```{r boxplot no outliers}
+# box plot of bat visits per tree by village type, no outlier
+bat_tree_tot %>% 
+  na.omit() %>% 
+  filter(num_visits > 0 & num_visits < 5544) %>% 
+  ggplot(aes(x = case_control_group, y = num_visits)) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(x = "Village type",
+       y = "Number of visits",
+       title = "Number of bat visits to each date palm tree by village type", 
+       caption = "One outlier case village tree with 5544 visits omitted.") 
+```
+
+
+```{r percent of villages with visits graph}
+# graph of villages with and without bat visits by village type
+bat_vil_tot %>% 
+  ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
+    #geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(position = "fill") +
+    theme_minimal() +
+    labs(title = "Villages with and without bat visits by village type")
+```
+Additional visit information:
+
+```{r average visits per tree}
+# average number of visits per tree (for trees with visits)
+bat_tree_tot %>% 
+  filter(num_visits > 0) %>% 
+  select(num_visits) %>% 
+  summary()
+```
+
+Trees with and without bat visits overall:
+
+```{r }
+# trees with no bat visits
+bat_tree_tot %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+Trees with and without bat visits by village type:
+
+```{r}
+# trees with no bat visits by village type
+bat_tree_tot %>%
+      group_by(case_control_group, yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+Notice that vase villages have the highest percent of trees visited, followed by near control and then far control.
+
+Stay and contamination percentages by vilage type
+
+```{r visit stays and contaminations by village type}
+# trees with no bat visits by village type
+date_palm_vil %>%
+  filter(Number_of_visits != 0) %>% 
+  group_by(case_control_group) %>%
+  summarise(pct_stays = mean(Number_of_stays), 
+            n_stay = sum(Number_of_stays), 
+            n_not_stay = sum(Number_of_stays == 0), 
+            pct_cont = mean(Number_of_contaminations), 
+            n_cont = sum(Number_of_contaminations), 
+            n_not_cont = sum(Number_of_contaminations == 0), 
+            pct_stay_cont = mean(ifelse(Number_of_stays == 1, 
+                                        Number_of_contaminations, NA), na.rm = T), 
+            n_stay_cont = sum(ifelse(Number_of_stays == 1, 
+                                      Number_of_contaminations, NA), na.rm = T), 
+            n_stay_not_cont = sum(ifelse(Number_of_stays == 1, 
+                                          Number_of_contaminations == 0, NA), na.rm = T))
+```
+
+- best way to present durations?
+
+Overview of fruit tree visits
+
+Overview of fruit vs. date palm visits by village (binary)
+
+```{r}
+f.vil_tot <- fruit_data_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(f.num_visits = sum(Number_of_visits)) %>%  
+  mutate(f.yn_visit = case_when(f.num_visits > 0 ~ 1, TRUE ~ 0))
+
+dp.vil_tot <-date_palm_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(dp.num_visits = sum(Number_of_visits)) %>% 
+  mutate(dp.yn_visit = case_when(dp.num_visits > 0 ~ 1, TRUE ~ 0))
+
+test3 <- full_join(f.vil_tot, dp.vil_tot, by="Village_ID") %>% 
+  left_join(fruit_data_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  left_join(date_palm_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  distinct()
+
+
+test3 <- test3 %>% 
+  mutate(yn_both = case_when(is.na(f.yn_visit) | is.na(dp.yn_visit) ~ 2, 
+                             f.yn_visit == 1 & dp.yn_visit == 1 ~ 1, 
+                             TRUE ~ 0))
+test3$yn_both <- na_if(test3$yn_both, 2)
+
+```
+
+```{r}
+
+```
+
+

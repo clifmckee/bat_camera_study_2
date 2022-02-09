@@ -56,6 +56,8 @@ fruit_data_vil <-
   left_join(fruit_data,
             survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
 
+saveRDS(fruit_data_vil, file= here("Data", "fruit_tree_with_villages.RDS"))
+
 ```
 
 #### Summary of observed villages and trees
@@ -68,10 +70,10 @@ n_distinct(fruit_data$Village_ID)
 fruit_data_vil %>% 
   group_by(case_control_group) %>% 
   summarize(num_vil = n_distinct(Village_ID))
-  # 46 case villages, 30 far control villages, 44 near control villages
+  # 45 case villages, 30 far control villages, 44 near control villages
 ```
 
-There are a total of 118 different villages observed. These are split between 44 case, 44 near control, and 30 far control. 
+There are a total of 118 different villages observed. These are split between 45 case, 43 near control, and 30 far control. 
 
 *Tree observations*
 
@@ -82,34 +84,26 @@ n_distinct(fruit_data$Tree_type)
 
 There are 204 unique trees observed over 13 different tree types.
 
-```{r trees by village}
+
+```{r trees observed per village type}
+# tree summaries by village
 fruit_data %>% 
   group_by(Village_ID) %>% 
   summarize(num_trees = n_distinct(Tree_number)) %>% 
   summary(num_trees)
-```
 
-The average number of trees observed per village is 1.7 (mix-max = 1-3).
-
-```{r trees observed per village type}
-village_summary_vil <- fruit_data_vil %>% 
+# trees observed by village type
+fruit_data_vil %>% 
   group_by(case_control_group) %>% 
   summarize(num_tree = n_distinct(Tree_number)) %>% 
   mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
   rename(village_type = case_control_group)
-  # 82 trees at case villages, 50 far control villages, 76 near control villages
-village_summary_vil
 
-fruit_data_vil %>%
-  distinct(Tree_number, .keep_all = TRUE) %>% 
-    ggplot(aes(x=factor(case_control_group))) +
-    geom_bar(stat = "count", fill = "steelblue") +
-    geom_text(stat='count', aes(label=..count..), vjust=2) +
-    theme_minimal() +
-    ggtitle("Number of trees observed by village type")
+
+
 ```
 
-Of the 204 trees observed, 78 were located in case villages, 50 were located in far control villages, and 76 were located in hear control villages. 
+The average number of trees observed per village is 1.7 (mix-max = 1-3). Of the 204 trees observed, 80 were located in case villages, 50 were located in far control villages, and 74 were located in hear control villages. 
 
 ```{r trees observed by tree species}
 tree_summary_vil <- fruit_data_vil %>% 
@@ -120,14 +114,15 @@ tree_summary_vil <- fruit_data_vil %>%
 tree_summary_vil
   #only 5 tree types with more than 2 trees observed
 
-fruit_data_vil %>%
-  distinct(Tree_number, .keep_all = TRUE) %>% 
-    ggplot(aes(x=factor(Tree_type))) +
-    geom_bar(stat = "count", fill = "steelblue") +
-    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    ggtitle("Number of trees observed by tree type")
+tree_summary_vil %>%
+  ggplot(aes(x = reorder(tree_type, -num_trees) , y = num_trees)) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = num_trees), vjust=-.5) +
+  ylim(0, 85) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("Number of trees observed by tree type")
+  
 ```
 
 
@@ -154,7 +149,7 @@ fruit_data_vil_sum %>%
     geom_bar(stat = "count") +
     theme_minimal() +
     labs(title = "Number of trees observed by village type and tree species", 
-            caption = "Rare trees categorized as other. This includes tamarind, papaya, \nrose apple, cotton tree, indian olive, fig, betel nut, and jack fruit.")
+            caption = "Tree types with only 1 or 2 trees observed categorized as other. This includes tamarind, papaya, \nrose apple, cotton tree, indian olive, fig, betel nut, and jack fruit.")
 ```
 
 ```{r additional interest}
@@ -185,35 +180,24 @@ There were 343 bat visits observed. However, bats may be observed multiple times
 # bat visits by village
 bat_vil_tot <- fruit_data_vil %>% 
   group_by(Village_ID) %>% 
-  summarize(num_visits = sum(Number_of_visits))
-
-# binary column for bat visits
-bat_vil_tot <- bat_vil_tot %>% 
-  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no"))
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  inner_join(survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
 
 # villages with no bat visits
-sum(bat_vil_tot$num_visits == 0)
+bat_vil_tot %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
 
-# Add back village type information
-bat_vil_tot <-
-  inner_join(bat_vil_tot,
-            survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
-
-village_summary_visits <- fruit_data_vil %>% 
-  group_by(case_control_group) %>% 
-  summarise(num_visits = sum(Number_of_visits)) %>% 
-  mutate("percent_visits" = num_visits/sum(num_visits)*100)
-village_summary <- cbind(village_summary_vil, village_summary_visits)
-village_summary <- subset(village_summary, select = -c(case_control_group))
-village_summary
-
-fruit_data_vil %>% 
-  filter(Number_of_visits != 0) %>% 
-   ggplot(aes(x=factor(case_control_group))) +
-    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    geom_bar(stat = "count") +
-    theme_minimal() +
-    labs(title = "Total number of bat visits by village type")
+# visits by village type 
+fruit_data_vil %>%
+      group_by(case_control_group) %>%
+      summarise(num_tree = n_distinct(Tree_number), 
+                num_visits = sum(Number_of_visits)) %>% 
+      mutate(percent_visits = round((num_visits / sum(num_visits)), 3), 
+             percent_tree = round((num_tree / sum(num_tree)), 3))
 
 ```
 Trees at 76% (90/118) of villages did not receive a bat visit. Trees at case villages received 38 visits, at far control villages 55, and at near control villages 250. Trees at case villages received 11% of bat visits while cases villages have 39% of trees observed. Comparatively, trees at near control villages received 73% of bat visits while representing only 36% of observed trees. 
@@ -235,22 +219,15 @@ bat_vil_tot %>%
 # bat visits by tree type
 bat_tree_tot <- fruit_data_vil %>% 
   group_by(Tree_number) %>% 
-  summarize(num_visits = sum(Number_of_visits))
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  inner_join(fruit_data_vil %>% dplyr::select(Tree_number,Tree_type))
 
-# binary column for bat visits
-bat_tree_tot <- bat_tree_tot %>% 
-  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no"))
-
-# Add back tree type information
-bat_tree_tot <-
-  inner_join(bat_tree_tot,
-            fruit_data_vil %>% dplyr::select(Tree_number,Tree_type))
-bat_tree_tot <- bat_tree_tot[!duplicated(bat_tree_tot), ] #drop duplicate observations
+bat_tree_tot <- bat_tree_tot[!duplicated(bat_tree_tot), ]
 
 # Add back village type information
-bat_tree_tot <-
-  inner_join(bat_tree_tot,
-            fruit_data_vil %>% dplyr::select(Tree_number, case_control_group))
+bat_tree_tot <-inner_join(bat_tree_tot, fruit_data_vil %>% 
+                            dplyr::select(Tree_number, case_control_group))
 bat_tree_tot <- bat_tree_tot[!duplicated(bat_tree_tot), ] #drop duplicate observations
 
 # bat visits by tree type table
