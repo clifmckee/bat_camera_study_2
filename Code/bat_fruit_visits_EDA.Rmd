@@ -16,6 +16,7 @@ library(here)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(naniar)
 ```
 
 
@@ -34,7 +35,7 @@ str(fruit_data)
 head(fruit_data)
 ```
 
-Overall there are 514 rows of observations across 26 variables. (Not every row indicates a bat visit.)
+Overall there are 514 rows of observations across 26 variables. 
 
 ```{r add village type information, message=FALSE}
 # Combine with information on village type
@@ -55,6 +56,14 @@ fruit_data_vil <- transform(fruit_data, Village_ID = as.numeric(Village_ID))
 fruit_data_vil <-
   left_join(fruit_data,
             survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
+
+# recode bat types
+fruit_data_vil <- fruit_data_vil %>% 
+  mutate(recode_P_NP = case_when(Number_of_visits == 0 ~ "",
+                                 P_NP == 0 ~ "Non Pteropus", 
+                                 P_NP == 1 ~ "Pteropus",
+                                 TRUE ~ "Unidentified")) %>% 
+  replace_with_na(replace = list(recode_P_NP = ""))
 
 saveRDS(fruit_data_vil, file= here("Data", "fruit_tree_with_villages.RDS"))
 
@@ -98,8 +107,6 @@ fruit_data_vil %>%
   summarize(num_tree = n_distinct(Tree_number)) %>% 
   mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
   rename(village_type = case_control_group)
-
-
 
 ```
 
@@ -201,7 +208,6 @@ fruit_data_vil %>%
 
 ```
 Trees at 76% (90/118) of villages did not receive a bat visit. Trees at case villages received 38 visits, at far control villages 55, and at near control villages 250. Trees at case villages received 11% of bat visits while cases villages have 39% of trees observed. Comparatively, trees at near control villages received 73% of bat visits while representing only 36% of observed trees. 
-
 
 This graph demonstrates the high percentage of villages with trees that did not receive a bat visit. 
 

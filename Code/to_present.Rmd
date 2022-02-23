@@ -3,26 +3,265 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-To present in meeting 2/16
+### Describing bat-human contact through shared food in Bangladesh: A community case-control study
+  
+  
+  
+##### **Background:**
 
-```{r load packages, message = FALSE}
+In Bangladesh, bats, humans, and livestock live in close proximity, with likely overlap in consumption of common food resources (e.g., date palm sap and various fruits). Pteropus bats in Bangladesh are reservoir hosts for Nipah virus, which is transmitted from bats to people through shared consumption of date palm sap and then can be transmitted from person-to-person. Given that Nipah virus as a pathogen with pandemic potential, increased understanding of potential transmission routes is highly valuable to design prevention strategies, such as reducing opportunities for human consumption of bat contaminated fruits and date palm sap. 
+
+##### **Objective:**
+
+* better understand consumption characteristics that put some villages at risk for Nipah outbreaks by contrasting villages that have had Nipah cases to those that have not
+* describe food consumption patterns and practices for bats, humans, and livestock, and compare interactions between groups over shared food resources
+
+##### **Hypotheses:**
+1. Bats visit date palm sap trees more often than fruit trees. Additionally, in villages where date palm sap is harvested, bats consume date palm sap more often than fruits. We also expect that bats visit both date palm and fruit trees more often in case villages compared to control villages.
+2. In villages where cases of Nipah virus were identified, humans and bats have more similar fruit consumption behaviors compared to villages where no Nipah cases have been identified. Observed bat visits to date palm and fruit trees (collected using camera traps) match reported bat visits from village community surveys. We also expect to find differences in animal fruit consumption between case and control villages. 
+
+##### **Methods:**
+
+* data collected between December 2011 - February 2012 and between December 2012 - February 2013
+* Three village types observed:
+  - Case: villages with reported human infections of Nipah virus between 2001-2012
+  - Near control: villages with no reported Nipah infections but within 50 km of a case village
+  - Far control: villages with no reported Nipah infections and greater than 50 km from a case village
+* Up to 25 households were selected in each village and administered a structured survey on household demographics, date palm sap consumption practices, experience with observing and hunting bats, number of fruiting trees on the household premises, and behavior regarding eating fruit with animal bite marks off the ground
+* In villages where date palm sap collection is reported, 1-2 trees date palm trees were identified by villagers and equipped with a motion sensor tripped infrared camera 
+* In villages where residents identify an area where bats are feeding near the village near where domestic animals forage or people recently reported collecting dropped fruit, 1-2 fruit trees will be identified and equipped with a motion sensor tripped infrared camera
+  
+   
+    
+```{r load packages, message=FALSE, include=FALSE}
 # load packages
 library(here)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(knitr)
+library(reshape)
+
+options(dplyr.summarise.inform = FALSE)
 ```
 
-```{r import data}
-#load data
+```{r import data, include=FALSE}
+# load data
 date_palm_vil <- readRDS(here("DATA","date_palm_with_villages.RDS"))
 fruit_data_vil <- readRDS(here("Data", "fruit_tree_with_villages.RDS"))
+fruit_survey <- readRDS(here("Data","community_resident_fruit_survey.RDS"))
+
+names(fruit_survey)[names(fruit_survey) == 'correct_villid'] <- "Village_ID"
+```
+  
+##### **Part 1: Villages observed**
+Begin by examining the villages included in the study. All villages have community survey information, but only villages with active date palm sap collection had camera traps at date palm trees and only villages with bats feeding at fruit trees near human fruit consumption areas had camera traps at fruit trees.
+
+```{r Create combined dataset of all villages included in study, message=FALSE, warning=FALSE, include=FALSE}
+# Create combined dataset of all villages included in study
+
+# community survey summary
+suppressMessages(cs.total <- fruit_survey %>% 
+  group_by(Village_ID) %>% 
+  summarise(num_survey = n()) %>% 
+  left_join(fruit_survey %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  distinct())
+  
+# fruit camera village summary
+f.total <- fruit_data_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(f.num_tree = n_distinct(Tree_number))
+
+# date palm camera villages summary
+dp.total <-date_palm_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(dp.num_tree = n_distinct(Tree_number))
+
+# combine all data
+vil.total <- full_join(cs.total, dp.total, by="Village_ID") 
+vil.total <- full_join(vil.total, f.total, by="Village_ID") 
+vil.total <- vil.total %>% 
+  mutate(dp.yn = case_when(is.na(dp.num_tree) ~ 0,
+                           TRUE ~ 1), 
+         f.yn = case_when(is.na(f.num_tree) ~ 0,
+                           TRUE ~ 1), 
+         cs.yn = 1) %>% 
+  mutate(Trees_observed = case_when((dp.yn == 0 & f.yn == 0) ~ "No trees", 
+                                    (dp.yn == 1 & f.yn == 0) ~ "Date palm only", 
+                                    (dp.yn == 0 & f.yn == 1) ~ "Fruit tree only",
+                                    TRUE ~ "Both"))
+
+# create long table version
+vil.total_long <- vil.total %>% 
+  subset(select = -c(num_survey, dp.num_tree, f.num_tree)) %>% 
+  gather(col_type, col_yn, dp.yn:cs.yn, factor_key = TRUE)
+```
+
+Overall 206 villages were included in the study. 60 case, 72 near control, and 74 far control villages were included. All had community surveys completed.
+
+Only 41% (85/206) of villages included in the study had active date palm sap collection. This was comparable across village types (45% case, 36% near control, 43% far control). More villages, 57%, had bats visiting fruit trees in areas where bats fed near to where domestic animals forage or people recently reported collecting dropped fruit. This was highest for case villages (75%), followed by near control (60%), and far control (41%).
+
+```{r total villages, fig.height = 2}
+#  Total villages included in study, by village type
+vil.total_long %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_vil = n_distinct(Village_ID)) %>% 
+  mutate(total_vil = sum(num_vil))
 ```
 
 
-Part 1. Date palm visits overview
+```{r number of villages with each type of data collection, echo=TRUE, message=FALSE, warning=FALSE, messagae=FALSE}
+# number of villages with each type of data collection
+v1 <- vil.total_long %>% 
+  group_by(col_type) %>% 
+  summarize(vil_observed = sum(col_yn)) %>% 
+  mutate(vil_not_observed = 206 - vil_observed,
+         total_vil = 206, 
+         "perc_vil" = vil_observed/206*100)
+```
 
-Villages and and date palm trees observed:
+```{r print v1, echo=FALSE}
+print(v1)
+```
+
+
+```{r number of villages with each type of data collection by village type, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE, include=TRUE}
+# number of villages with each type of data collection, by village type
+v2 <- vil.total_long %>%
+  group_by(case_control_group, col_type) %>%
+  summarise(vil_observed=sum(col_yn), 
+            total_vil = n()) %>% 
+  mutate(vil_not_observed = total_vil - vil_observed, 
+         "perc_vil" = vil_observed/total_vil*100)
+```
+
+
+```{r print v2, echo=FALSE}
+v2 <- v2[, c(1, 2, 3, 5, 4, 6)]
+print(v2)
+```
+
+```{r bar plot of villages with each type of data collection, echo=FALSE}
+# Decided other chart was better
+# bar plot of villages with each type of data collection
+# totals<- vil.total_long %>%
+#   group_by(col_type) %>%
+#   summarise(total=sum(col_yn))
+#   
+# vil.total_long %>% 
+#   ggplot(aes(x= col_type, y = col_yn, fill = case_control_group)) +
+#     geom_bar(stat = "identity", width = 0.7) +
+#   geom_text(data=totals ,aes(x=col_type,y=total,label=total,fill=NULL),
+#             nudge_y = 10) +
+#   labs(y = "Number of villages", 
+#        title = "Villages visited for each data collection type (N=206), by village type") +
+#   scale_x_discrete("Data collection type", 
+#                    labels=c("dp.yn" = "Date palm tree observed", 
+#                             "f.yn" = "Fruit tree observed", 
+#                             "cs.yn" = "Community survey"), 
+#                    limits=c("cs.yn", "dp.yn", "f.yn")) +
+#   theme_bw() +
+#   scale_fill_manual(name = "Village type", 
+#                     values = c("case" = "#E69F00",
+#                                "control, far" = "#56B4E9",
+#                                "control, near" = "#009E73")) +
+#   geom_text(data=totals ,aes(x=col_type,y=total,label=total,fill=NULL),
+#             nudge_y = 10) +
+#   theme(axis.title.x = element_text(vjust = -0.5),
+#         axis.title.y = element_text(vjust = 1.5), 
+#         plot.title = element_text(size = 12))
+```
+
+```{r bar plot of villages with each type of data alt method, echo=FALSE}
+# bar plot of villages with each type of data collection
+
+ccg.labs <- c("Case (N = 60)", "Control, far (N = 74)", "Control, near (N = 72)")
+names(ccg.labs) <- c("case", "control, far", "control, near")
+
+totals2 <- vil.total_long %>%
+  group_by(case_control_group, col_type) %>%
+  summarise(total=sum(col_yn))
+  
+vil.total_long %>% 
+  ggplot(aes(x= col_type, y = col_yn)) +
+    geom_bar(stat = "identity", width = 0.7, show.legend = FALSE) +
+    geom_text(data=totals2 ,aes(x=col_type,y=total,label=total,fill=NULL),
+            nudge_y = 3) +
+  labs(y = "Number of villages", 
+       title = "Villages visited for each data collection type (N=206), by village type", 
+       caption = "CS = community survey") +
+  scale_x_discrete("Data collection type", 
+                   labels=c("dp.yn" = "Date palm", 
+                            "f.yn" = "Fruit", 
+                            "cs.yn" = "CS"), 
+                   limits=c("cs.yn", "dp.yn", "f.yn")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(vjust = 1), 
+        axis.title = element_text(size = 10), 
+        plot.title = element_text(size = 12)) +
+  facet_wrap(~ case_control_group, 
+             labeller = labeller(case_control_group = ccg.labs)) +
+  aes(fill = as.factor(case_control_group)) +
+  scale_fill_manual(name = "Village type", 
+                    values = c("case" = "#E69F00",
+                               "control, far" = "#56B4E9",
+                               "control, near" = "#009E73"))
+
+
+```
+
+```{r villages with each tree type observed, echo=TRUE}
+# villages with each tree type observed
+vil.total %>%
+      group_by(Trees_observed) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
+```
+
+```{r villages with each tree type observed by village type, echo=TRUE}
+# villages with each tree type observed, by village type
+vil.total %>%
+      group_by(case_control_group, Trees_observed) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
+```
+
+```{r villages with each tree type observed by village type chart, echo=FALSE}
+# villages with each tree type observed, by village type - chart
+vil.total %>%
+      group_by(case_control_group, Trees_observed) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3)) %>% 
+  ggplot(aes(x= Trees_observed, y = n)) +
+    geom_bar(stat = "identity", width = 0.7, show.legend = FALSE) + 
+    geom_text(aes(label = n), vjust = -.4) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1), 
+          axis.title.y = element_text(vjust = 1), 
+          axis.title = element_text(size = 10), 
+          plot.title = element_text(size = 12)) +
+    ylim(0, 36) +
+    labs(title = "Case, far control, and near control villages by tree type observed (N=206)", 
+         y = "Tree types observed", 
+         x = "Number of villages") +
+    facet_wrap(~ case_control_group, 
+             labeller = labeller(case_control_group = ccg.labs)) +
+    aes(fill = as.factor(case_control_group)) +
+    scale_fill_manual(values = c("case" = "#E69F00",
+                                 "control, far" = "#56B4E9",
+                                 "control, near" = "#009E73"))
+```
+
+
+##### **Part 2: Date palm visits overview**
+
+As stated above, 85 (out of 206) villages had active date palm sap collection and date palm trees were subsequently observed for bat visits.
+
+* 160 date palm trees observed over 85 villages
+* 27 case villages, 26 near control villages, 32 far control villages
 
 ```{r villages and trees observed}
 # examine number of villages and number of trees observed 
@@ -31,45 +270,44 @@ date_palm_vil %>%
   summarize(num_vil = n_distinct(Village_ID),
             num_tree = n_distinct(Tree_number)) %>% 
   mutate("perc_vil" = num_vil/sum(num_vil)*100, 
-         "perc_tree" = num_tree/sum(num_tree)) 
+         "perc_tree" = num_tree/sum(num_tree)*100) 
+```
   
+* On average 2 tree were observed per village 
+```{r}
+# average number of trees observed per village
+date_palm_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_tree = n_distinct(Tree_number)) %>% 
+  select(num_tree) %>% 
+  summary(n)
+```
+  
+* Little variation between village types for the number of trees observed per village
+```{r}
+# average number of trees observed per village, by village type
+date_palm_vil %>% 
+  group_by(case_control_group, Village_ID) %>% 
+  summarize(num_tree = n_distinct(Tree_number)) %>% 
+  mutate(min = min(num_tree),
+         q1 = quantile(num_tree, 0.25),
+         median = median(num_tree),
+         mean = mean(num_tree),
+         q3 = quantile(num_tree, 0.75),
+         max = max(num_tree)) %>% 
+  select(-c(num_tree, Village_ID)) %>% 
+  distinct()
 ```
 
-Camera trap visits to date palm trees across village types:
 
-```{r visits by village type}
-# visits by village type 
-date_palm_vil %>%
-  group_by(case_control_group) %>%
-  summarise(n = sum(Number_of_visits)) %>% 
-  mutate(totalN = (cumsum(n)),
-         percent = round((n / sum(n)), 3),
-         cumpercent = round(cumsum(freq = n / sum(n)),3))
-```
-
-After one outlier tree at a case village is removed, case villages no longer received the most visits:
-
-```{r visits by village type, no outlier}
-# visits by village type without outlier
-date_palm_vil %>%
-  filter(Tree_number != "3038.ICT1") %>% 
-  group_by(case_control_group) %>%
-  summarise(n = sum(Number_of_visits)) %>% 
-  mutate(totalN = (cumsum(n)),
-         percent = round((n / sum(n)), 3),
-         cumpercent = round(cumsum(freq = n / sum(n)),3))
-```
-
-Create tables for village and tree totals:
-
-```{r tables for visits by village and by tree, message=FALSE}
+```{r tables for visits by village and by tree, message=FALSE, include=FALSE}
 # bat visits by village
 bat_vil_tot <- date_palm_vil %>% 
   group_by(Village_ID) %>% 
   summarize(num_visits = sum(Number_of_visits)) %>% 
   mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
   mutate(yn_visit_num = case_when(num_visits > 0 ~ 1, TRUE ~ 0)) %>% 
-  inner_join(date_palm_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  left_join(date_palm_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
   distinct() 
 
 # bat visits by tree
@@ -80,71 +318,41 @@ bat_tree_tot <- date_palm_vil %>%
   left_join(date_palm_vil %>% dplyr::select(Tree_number, case_control_group)) %>% 
   distinct()
 ```
-
-Boxplot of bat visits per tree, by village type:
-
-```{r boxplot of tree visits by village type}
-# including trees with no visits and outlier
-bat_tree_tot %>% 
-  ggplot(aes(x = case_control_group, y = num_visits)) +
-  geom_boxplot() +
-  theme_bw() +
-  labs(x = "Village type",
-       y = "Number of visits",
-       title = "Number of bat visits to each date palm tree by village type") 
+  
+* most villages with date palm trees observed had at least one tree that received a bat visit (91%)
+```{r villages with bat visits}
+# villages with bat visits
+bat_vil_tot %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
 ```
+  
+* a higher percentages of case and near control villages had at least one date palm tree that received a bat visit (96%) compared to far control villages (81%)
 
-Boxplot of bat visits per tree, by village type with outlier tree removed:
-
-```{r boxplot no outliers}
-# box plot of bat visits per tree by village type, no outlier
-bat_tree_tot %>% 
-  na.omit() %>% 
-  filter(num_visits > 0 & num_visits < 5544) %>% 
-  ggplot(aes(x = case_control_group, y = num_visits)) +
-  geom_boxplot() +
-  theme_bw() +
-  labs(x = "Village type",
-       y = "Number of visits",
-       title = "Number of bat visits to each date palm tree by village type", 
-       caption = "One outlier case village tree with 5544 visits omitted.") 
+```{r villages with bat visits, by village type}
+# villages with bat visits, by village type
+bat_vil_tot %>%
+      group_by(case_control_group, yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
 ```
-
-
-```{r percent of villages with visits graph}
-# graph of villages with and without bat visits by village type
-bat_vil_tot %>% 
-  ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
-    #geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    geom_bar(position = "fill") +
-    theme_minimal() +
-    labs(title = "Villages with and without bat visits by village type")
-```
-Additional visit information:
-
-```{r average visits per tree}
-# average number of visits per tree (for trees with visits)
-bat_tree_tot %>% 
-  filter(num_visits > 0) %>% 
-  select(num_visits) %>% 
-  summary()
-```
-
-Trees with and without bat visits overall:
-
-```{r }
-# trees with no bat visits
+  
+* Overall, most date palm trees observed received at least one bat visit (80%)
+```{r tree with bat visits}
+# trees with bat visits
 bat_tree_tot %>%
       group_by(yn_visit) %>%
       summarise(n = n()) %>%
       mutate(totalN = (cumsum(n)),
-             percent = round((n / sum(n)), 3),
-             cumpercent = round(cumsum(freq = n / sum(n)),3))
+             percent = round((n / sum(n)), 3))
 ```
+  
+* case villages and near control villages had a higher % of trees visited than far control
 
-Trees with and without bat visits by village type:
-
-```{r}
+```{r trees with no bat visits by village type}
 # trees with no bat visits by village type
 bat_tree_tot %>%
       group_by(case_control_group, yn_visit) %>%
@@ -154,15 +362,89 @@ bat_tree_tot %>%
              cumpercent = round(cumsum(freq = n / sum(n)),3))
 ```
 
-Notice that vase villages have the highest percent of trees visited, followed by near control and then far control.
 
-Stay and contamination percentages by vilage type
+```{r boxplot of tree visits by village type, eval=FALSE, include=FALSE}
+# including trees with no visits and outlier
+#bat_tree_tot %>% 
+#  ggplot(aes(x = case_control_group, y = num_visits)) +
+#  geom_boxplot() +
+#  theme_bw() +
+#  labs(x = "Village type",
+#       y = "Number of visits",
+#       title = "Number of bat visits to each date palm tree by village type") 
+# hidden because I don't think this is currently needed, focusing on the visit duration
+```
 
-```{r visit stays and contaminations by village type}
+* Because the number of visits to each tree is difficult to assess based on the visit assessment method used, visit stay duration of each visit is used for comparison
+* While non-pteropus bats represented a higher number of visits, the stay duration of pteropus visits is much longer than non-pteropus bats 
+* Cumulative stay duration for pteropus visits is similar across village types
+* The average stay duration for pteropus visits is higher in case villages, where less visits occurred but cumulative visit duration is similar
+
+```{r cumulative and average visit duration by village type, echo=TRUE}
+# cumulative and average visit duration by village type
+date_palm_vil %>% 
+  filter(Number_of_visits > 0) %>%
+  group_by(case_control_group, recode_P_NP) %>% 
+  summarize(num = n(),
+            cum = sum(DurStayT),
+            q1 = quantile(DurStayT, 0.25),
+            median = median(DurStayT),
+            mean = mean(DurStayT),
+            q3 = quantile(DurStayT, 0.75),
+            max = max(DurStayT))
+```
+
+```{r echo=FALSE, warning=FALSE}
+date_palm_vil %>%
+  filter(Number_of_visits > 0) %>%
+  ggplot(aes(x = recode_P_NP, y = log(DurStayT))) +
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), 
+              scale = "width", 
+              show.legend = FALSE) +
+  facet_wrap(~ case_control_group) +
+  theme_bw() +
+  labs(title = "Bat visit stay duration (seconds) at date palm trees by village and bat type, log transformed", 
+       y = "log stay duration", 
+       x = "Bat type") +
+    aes(fill = as.factor(case_control_group)) +
+    scale_fill_manual(values = c("case" = "#E69F00",
+                                 "control, far" = "#56B4E9",
+                                 "control, near" = "#009E73")) +
+   theme(axis.text.x = element_text(angle = 25, hjust = 1),
+         axis.title.y = element_text(vjust = 1), 
+         axis.title = element_text(size = 10), 
+         plot.title = element_text(size = 12)) 
+```
+
+```{r cumulative stays barplot, eval=FALSE, include=FALSE}
+# date_palm_vil %>% 
+#   filter(Number_of_visits > 0) %>%
+#   ggplot(aes(x=case_control_group, y = DurStayT, fill = case_control_group)) +
+#     geom_bar(stat = "sum", show.legend = FALSE, width = 0.7) +
+#   labs(x = "Village type", 
+#        y = "Cumulative visit stay duration", 
+#        title = "Cumulative visit stay duration at date palm trees\nby village type and bat identification") +
+#   theme_bw() +
+#     theme(axis.text.x = element_text(angle = 25, hjust = 1),
+#         axis.title.y = element_text(vjust = 1), 
+#         axis.title = element_text(size = 10), 
+#         plot.title = element_text(size = 12)) +
+#     scale_fill_manual(
+#     name = "case_control_group",
+#     values = c(
+#       "case" = "#E69F00",
+#       "control, far" = "#56B4E9",
+#       "control, near" = "#009E73")) +
+#   facet_wrap(~ recode_P_NP)
+```
+
+Stay and contamination percentages by village type
+
+```{r visit stays and contaminations by village type, echo=TRUE}
 # trees with no bat visits by village type
 date_palm_vil %>%
   filter(Number_of_visits != 0) %>% 
-  group_by(case_control_group) %>%
+  group_by(case_control_group, recode_P_NP) %>%
   summarise(pct_stays = mean(Number_of_stays), 
             n_stay = sum(Number_of_stays), 
             n_not_stay = sum(Number_of_stays == 0), 
@@ -177,39 +459,395 @@ date_palm_vil %>%
                                           Number_of_contaminations == 0, NA), na.rm = T))
 ```
 
-- best way to present durations?
+##### **Part 3: Fruit tree visits overview**
 
-Overview of fruit tree visits
+As stated above, 118 (out of 206) villages had fruit trees identified that were visited by bats located near the village and where animals/people consume dropped fruit, with fruit trees subsequently observed for bat visits.
 
-Overview of fruit vs. date palm visits by village (binary)
+* 204 date palm trees observed over 118 villages
+* 45 case villages, 43 near control villages, 30 far control villages
+
+```{r villages and trees observed fruit, echo=TRUE}
+# examine number of villages and number of trees observed 
+fruit_data_vil  %>% 
+  group_by(case_control_group) %>% 
+  summarize(num_vil = n_distinct(Village_ID),
+            num_tree = n_distinct(Tree_number)) %>% 
+  mutate("perc_vil" = num_vil/sum(num_vil)*100, 
+         "perc_tree" = num_tree/sum(num_tree)*100) 
+  
+```
+
+```{r tables for visits by village and by tree fruit, message=FALSE, include=FALSE}
+# Create tables for village and tree totals
+
+# bat visits by village
+bat_vil_tot_f <- fruit_data_vil  %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  mutate(yn_visit_num = case_when(num_visits > 0 ~ 1, TRUE ~ 0)) %>% 
+  left_join(fruit_data_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  distinct() 
+
+# bat visits by tree
+bat_tree_tot_f <- fruit_data_vil  %>% 
+  group_by(Tree_number) %>% 
+  summarize(num_visits = sum(Number_of_visits)) %>% 
+  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
+  left_join(fruit_data_vil %>% dplyr::select(Tree_number, case_control_group, Tree_type)) %>% 
+  distinct()
+```
+
+
+* out of 13 fruit tree types observed, only 5 had more than 2 trees observed
+* when asked, villagers often report bats visiting jujube, guava, star fruit, spodilla, and banana -> these trees, by villager observation, have the most overlap between bat consumption, animal dropped fruit consumption, and human dropped fruit consumption
+
+```{r trees observed by tree species}
+# number of fruit trees observed by species
+tree_summary_vil <- fruit_data_vil %>% 
+  group_by(case_control_group, Tree_type) %>%
+  summarize(num_trees = n_distinct(Tree_number)) %>% 
+  mutate("percent_trees" = num_trees/sum(num_trees)*100) %>% 
+  rename(tree_type = Tree_type)
+
+tree_summary_vil %>% 
+  group_by(tree_type) %>% 
+  summarise(num_trees2 = sum(num_trees)) %>% 
+  arrange(-num_trees2)
+```
+
+```{r trees observed by tree species graph, echo=FALSE}
+
+tree_summary_vil %>%
+  group_by(tree_type) %>% 
+  summarise(num_trees2 = sum(num_trees)) %>% 
+  arrange(-num_trees2) %>% 
+  ggplot(aes(x = reorder(tree_type, -num_trees2) , y = num_trees2)) +
+  geom_bar(stat = "identity") + 
+  geom_text(aes(label = num_trees2), vjust=-.5) +
+  ylim(0, 85) +
+  theme_bw() +
+  labs(x = "Fruit tree type", 
+       y = "Numer of fruit trees observed", 
+       title = "Number of fruit trees observed by tree type") +
+   theme(axis.text.x = element_text(angle = 25, hjust = 1),
+         axis.title.y = element_text(vjust = 1), 
+         axis.title = element_text(size = 10), 
+         plot.title = element_text(size = 12))
+  
+```
+
+* Tree types observed at each village type are similar, with less guava trees observed at far control villages. However, less far control villages were observed overall
+
+```{r echo=FALSE}
+tree_summary_vil2 <- tree_summary_vil
+tree_summary_vil2[tree_summary_vil2 == 'Tamarind' | tree_summary_vil2 == 'Betel nut' | tree_summary_vil2 == 'Cotton tree' | tree_summary_vil2 == 'Fig' | tree_summary_vil2 == 'Indian olive' | tree_summary_vil2 == 'Jack fruit' | tree_summary_vil2 == 'Papaya' | tree_summary_vil2 == 'Rose apple'] <- 'Other'
+
+ccgt.labs <- c("Case (N = 80)", "Control, far (N = 50)", "Control, near (N = 74)")
+names(ccgt.labs) <- c("case", "control, far", "control, near")
+
+tree_summary_vil2 %>%
+  group_by(case_control_group, tree_type) %>% 
+    summarise(num_trees2 = sum(num_trees)) %>% 
+    arrange(-num_trees2) %>% 
+    ggplot(aes(x = reorder(tree_type, -num_trees2) , y = num_trees2)) +
+     geom_bar(stat = "identity") + 
+     geom_text(aes(label = num_trees2), vjust=-.5) +
+     ylim(0, 85) +
+     theme_bw() +
+     labs(x = "Fruit tree type", 
+          y = "Numer of fruit trees observed", 
+          title = "Number of fruit trees observed by tree type") +
+     theme(axis.text.x = element_text(angle = 25, hjust = 1),
+           axis.title.y = element_text(vjust = 1), 
+           axis.title = element_text(size = 10), 
+           plot.title = element_text(size = 12)) +
+     facet_wrap(~case_control_group, 
+                labeller = labeller(case_control_group = ccgt.labs)) +
+     ylim(0, 40)
+
+```
+
+* On average 2 tree were observed per village
+
+```{r average number of fruit trees observed per village}
+# average number of fruit trees observed per village
+fruit_data_vil %>% 
+  group_by(Village_ID) %>% 
+  summarize(num_tree = n_distinct(Tree_number)) %>% 
+  select(num_tree) %>% 
+  summary(n)
+```
+
+* Little variation between village types for the number of trees observed per village
+
+```{r average number of fruit trees observed per village, by village type}
+# average number of fruit trees observed per village, by village type
+fruit_data_vil %>% 
+  group_by(case_control_group, Village_ID) %>% 
+  summarize(num_tree = n_distinct(Tree_number)) %>% 
+  mutate(min = min(num_tree),
+         q1 = quantile(num_tree, 0.25),
+         median = median(num_tree),
+         mean = mean(num_tree),
+         q3 = quantile(num_tree, 0.75),
+         max = max(num_tree)) %>% 
+  select(-c(num_tree, Village_ID)) %>% 
+  distinct()
+```
+
+
+* Most villages with fruit trees did not have a tree that received a bat visit (24% with visits)
+
+```{r}
+# villages with no bat visits
+bat_vil_tot_f %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+* This corresponds to only 16% of overall fruit trees across villages receiving a bat visit
+
+```{r }
+# trees with no bat visits
+bat_tree_tot_f %>%
+      group_by(yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+* a higher percentages of far control and near control village fruit trees received bat visits than case village fruit trees
+
+```{r}
+# trees with no bat visits by village type
+bat_tree_tot_f %>%
+      group_by(case_control_group, yn_visit) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3),
+             cumpercent = round(cumsum(freq = n / sum(n)),3))
+```
+
+```{r average visits per tree fruit, eval=FALSE, include=FALSE}
+# # average number of visits per tree (for trees with visits)
+# bat_tree_tot_f %>% 
+#   filter(num_visits > 0) %>% 
+#   select(num_visits) %>% 
+#   summary()
+```
+
+
+```{r Visits by village type, eval=FALSE, include=FALSE}
+# average number of visits per tree (for trees with visits), by village type
+# bat_tree_tot_f %>%
+#   filter(num_visits > 0) %>%
+#   group_by(case_control_group) %>%
+#   summarize(min = min(num_visits),
+#             q1 = quantile(num_visits, 0.25),
+#             median = median(num_visits),
+#             mean = mean(num_visits),
+#             q3 = quantile(num_visits, 0.75),
+#             max = max(num_visits))
+```
+
+
+```{r graph of the number of bat visits per fruit tree, echo=FALSE}
+# graph of the number of bat visits per fruit tree
+bat_tree_tot_f %>% 
+  filter(num_visits > 0) %>% 
+  ggplot(aes(x = case_control_group, y = num_visits, fill = Tree_type)) +
+    geom_point(aes(color = Tree_type), size=3) +
+    theme_bw() +
+    labs(title = "Number of bat visits to fruit trees", 
+         caption = "33 total fruit trees received at least 1 bat visit", 
+         x = "Village type", 
+         y = "Number of visits")
+```
+
+
+```{r boxplot of fruit tree visits by village type, eval=FALSE, include=FALSE}
+# # including trees with no visits and outlier
+# bat_tree_tot_f %>% 
+#   ggplot(aes(x = case_control_group, y = num_visits)) +
+#   geom_boxplot() +
+#   theme_bw() +
+#   labs(x = "Village type",
+#        y = "Number of visits",
+#        title = "Number of bat visits to each fruit tree by village type") 
+```
+
+```{r overall cumulative and average visit durations to fruit trees}
+# # overall cumulative and average visit durations
+# fruit_data_vil %>% 
+#   filter(Number_of_visits > 0) %>%
+#   summarize(num = n(),
+#             cum = sum(DurStayT),
+#             q1 = quantile(DurStayT, 0.25),
+#             median = median(DurStayT),
+#             mean = mean(DurStayT),
+#             q3 = quantile(DurStayT, 0.75),
+#             max = max(DurStayT))
+```
+
+
+* The average stay duration for pteropus visits is higher in case and near control villages than far control villages
+
+
+```{r cumulative and average visit duration to fruit trees by village type}
+# cumulative and average visit duration to fruit trees by village type
+fruit_data_vil %>% 
+  filter(Number_of_visits > 0) %>%
+  group_by(case_control_group, recode_P_NP) %>% 
+  summarize(num_visits = n(),
+            cum = sum(DurStayT),
+            q1 = quantile(DurStayT, 0.25),
+            median = median(DurStayT),
+            mean = mean(DurStayT),
+            q3 = quantile(DurStayT, 0.75),
+            max = max(DurStayT))
+
+```
+
+```{r echo=FALSE, warning=FALSE}
+fruit_data_vil %>%
+  filter(Number_of_visits > 0) %>%
+  ggplot(aes(x = recode_P_NP, y = log(DurStayT))) +
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), 
+              scale = "width", 
+              show.legend = FALSE) +
+  facet_wrap(~ case_control_group) +
+  theme_bw() +
+  labs(title = "Bat visit stay duration (seconds) at fruit trees by village and bat type, log transformed", 
+       y = "log stay duration", 
+       x = "Bat type") +
+    aes(fill = as.factor(case_control_group)) +
+    scale_fill_manual(values = c("case" = "#E69F00",
+                                 "control, far" = "#56B4E9",
+                                 "control, near" = "#009E73")) +
+   theme(axis.text.x = element_text(angle = 25, hjust = 1),
+         axis.title.y = element_text(vjust = 1), 
+         axis.title = element_text(size = 10), 
+         plot.title = element_text(size = 12)) 
+```
+
+```{r cumulative stays barplot fruit trees, eval=FALSE, include=FALSE}
+# fruit_data_vil %>% 
+#   ggplot(aes(x=case_control_group, y = DurStayT, fill = case_control_group)) +
+#     geom_bar(stat = "sum", show.legend = FALSE, width = 0.7) +
+#   labs(x = "Village type", 
+#        y = "Cumulative visit stay duration", 
+#        title = "Cumulative visit stay duration at fruit trees\nby village type and bat identification") +
+#   theme_bw() +
+#     theme(axis.text.x = element_text(angle = 25, hjust = 1),
+#         axis.title.y = element_text(vjust = 1), 
+#         axis.title = element_text(size = 10), 
+#         plot.title = element_text(size = 12)) +
+#     scale_fill_manual(
+#     name = "case_control_group",
+#     values = c(
+#       "case" = "#E69F00",
+#       "control, far" = "#56B4E9",
+#       "control, near" = "#009E73")) +
+#   facet_wrap(~ recode_P_NP)
+```
+
+
+##### **Hypothesis 1: **
+
+* Bats visit date palm sap trees more often than fruit trees. 
+* Bats visit both date palm and fruit trees more often in case villages.
+* In villages where date palm sap is harvested, bats consume date palm sap more often than fruits.
+
+* 137/206 villages had camera traps set at at least one tree type
+  - 66/137 villages had both date palm and fruit trees observed
+  - 19/137 villages had only date palm trees observed
+  - 52/137 had only fruit trees observed
 
 ```{r}
 f.vil_tot <- fruit_data_vil %>% 
   group_by(Village_ID) %>% 
-  summarize(f.num_visits = sum(Number_of_visits)) %>%  
+  summarize(f.num_visits = sum(Number_of_visits), 
+            f.avg_stay_dur = mean(ifelse(DurStayT > 0, 
+                                        DurStayT, NA), na.rm = T), 
+            f.cum_stay_dur = sum(ifelse(DurStayT > 0, 
+                                        DurStayT, NA), na.rm = T)) %>%  
   mutate(f.yn_visit = case_when(f.num_visits > 0 ~ 1, TRUE ~ 0))
 
 dp.vil_tot <-date_palm_vil %>% 
   group_by(Village_ID) %>% 
-  summarize(dp.num_visits = sum(Number_of_visits)) %>% 
+  summarize(dp.num_visits = sum(Number_of_visits), 
+            dp.avg_stay_dur = mean(ifelse(DurStayT > 0, 
+                                        DurStayT, NA), na.rm = T), 
+            dp.cum_stay_dur = sum(ifelse(DurStayT > 0, 
+                                        DurStayT, NA), na.rm = T)) %>% 
   mutate(dp.yn_visit = case_when(dp.num_visits > 0 ~ 1, TRUE ~ 0))
 
-test3 <- full_join(f.vil_tot, dp.vil_tot, by="Village_ID") %>% 
-  left_join(fruit_data_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
-  left_join(date_palm_vil %>% dplyr::select(Village_ID, case_control_group)) %>% 
-  distinct()
+suppressMessages(all_vil <- full_join(f.vil_tot, dp.vil_tot, by="Village_ID") %>% 
+  left_join(vil.total %>% dplyr::select(Village_ID, case_control_group)) %>% 
+  distinct())
 
 
-test3 <- test3 %>% 
-  mutate(yn_both = case_when(is.na(f.yn_visit) | is.na(dp.yn_visit) ~ 2, 
-                             f.yn_visit == 1 & dp.yn_visit == 1 ~ 1, 
-                             TRUE ~ 0))
-test3$yn_both <- na_if(test3$yn_both, 2)
+all_vil <- all_vil %>% 
+  mutate(yn_visits = case_when(f.yn_visit == 1 & (dp.yn_visit == 0 | is.na(dp.yn_visit)) ~ "fruit",
+                               dp.yn_visit == 1 & (f.yn_visit == 0 | is.na(f.yn_visit)) ~ "date palm",
+                               f.yn_visit == 1 & dp.yn_visit == 1 ~ "both",
+                               TRUE ~ "no visits")) %>% 
+  mutate(Trees_observed = case_when(is.na(f.yn_visit) ~ "Date palm only", 
+                           is.na(dp.yn_visit) ~ "Fruit tree only",
+                           TRUE ~ "Both"))
 
 ```
 
 ```{r}
-
+# villages by tree type observed
+all_vil %>%
+      group_by(Trees_observed) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
 ```
 
+```{r}
+# villages with both fruit and bat visits, not both visits, or not both observations
+all_vil %>%
+      group_by(Trees_observed, yn_visits) %>%
+      summarise(n = n()) %>%
+      mutate(totalN = (cumsum(n)),
+             percent = round((n / sum(n)), 3))
+```
+
+```{r}
+all_vil %>% 
+  ggplot(aes(x=p, y = DurStayT, fill = case_control_group)) +
+    geom_bar(stat = "sum", show.legend = FALSE, width = 0.7) +
+  labs(x = "Village type", 
+       y = "Cumulative visit stay duration", 
+       title = "Cumulative visit stay duration at date palm trees\nby village type and bat identification") +
+  theme_bw() +
+    theme(axis.text.x = element_text(angle = 25, hjust = 1),
+        axis.title.y = element_text(vjust = 1), 
+        axis.title = element_text(size = 10), 
+        plot.title = element_text(size = 12)) +
+    scale_fill_manual(
+    name = "case_control_group",
+    values = c(
+      "case" = "#E69F00",
+      "control, far" = "#56B4E9",
+      "control, near" = "#009E73")) +
+  facet_wrap(~ recode_P_NP)
+
+to.labs <- c("Both (N = 66)", "Date palm only (N = 19)", "Fruit tree only (N = 52)")
+names(to.labs) <- c("Both", "Date palm only", "Fruit tree only")
+
+all_vil %>% 
+  ggplot(aes(x=yn_visits)) +
+    geom_bar(stat = "count", show.legend = FALSE, width = 0.7) +
+  facet_grid(case_control_group ~ Trees_observed, 
+             labeller = labeller(Trees_observed = to.labs))
+```
 

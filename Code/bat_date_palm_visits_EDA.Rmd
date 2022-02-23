@@ -19,7 +19,6 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(naniar)
-library(gtsummary)
 ```
 
 #### Initial data observations
@@ -34,6 +33,10 @@ fruit_survey <- fruit_survey <- readRDS(here("DATA", "community_resident_fruit_s
 str(date_palm_data) 
 
 head(date_palm_data)
+
+# one village that had no trees observed 
+date_palm_data <- date_palm_data[complete.cases(date_palm_data[ , "Tree_type"]),]
+date_palm_data <- date_palm_data[complete.cases(date_palm_data[ , "Date_of_observation"]),]
 ```
 
 Dataset includes 8097 rows of information across 27 varibles
@@ -57,6 +60,14 @@ date_palm_vil <-
   left_join(date_palm_data,
             survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
 
+# recode bat types
+date_palm_vil <- date_palm_vil %>% 
+  mutate(recode_P_NP = case_when(Number_of_visits == 0 ~ "",
+                                 P_NP == 0 ~ "Non Pteropus", 
+                                 P_NP == 1 ~ "Pteropus",
+                                 TRUE ~ "Unidentified")) %>% 
+  replace_with_na(replace = list(recode_P_NP = ""))
+
 saveRDS(date_palm_vil, file= here("Data", "date_palm_with_villages.RDS"))
 
 ```
@@ -71,19 +82,17 @@ n_distinct(date_palm_vil$Village_ID)
 date_palm_vil %>% 
   group_by(case_control_group) %>% 
   summarize(num_vil = n_distinct(Village_ID))
-  # 14 case villages, 20 far control villages, 14 near control villages
+  # 14 case villages, 20 far control villages, 13 near control villages
 ```
-There are 48 villages with date palm tree observations; 14 case villages, 14 near control villages, and 20 far control villages.
+There are 47 villages with date palm tree observations; 14 case villages, 13 near control villages, and 20 far control villages.
 
 *Tree observations*
 
 ```{r Total number of trees}
 n_distinct(date_palm_vil$Tree_number)
 n_distinct(date_palm_vil$Tree_type)
-#Why 4 tree types?
-
 unique(date_palm_vil$Tree_type)
-# Two rows again with NAs
+
 
 date_palm_vil <- date_palm_vil %>% 
   mutate(correctTree_type = case_when(!is.na(Tree_type) ~ "Date palm", 
@@ -94,7 +103,7 @@ unique(date_palm_vil$correctTree_type)
 
 ```
 
-There are 85 unique trees observed.
+There are 89 unique trees observed.
 
 ```{r trees by village}
 # trees observed by village
@@ -111,7 +120,7 @@ date_palm_vil %>%
   rename(village_type = case_control_group)
 ```
 
-The average number of trees observed per village is 1.8 (mix-max = 1-2). 25% of tree were observed at case villages (22 trees), 44% at far control villages (38 trees), and 30% at near control villages (26 trees). 
+The average number of trees observed per village is 1.9 (mix-max = 1-2). 30% of tree were observed at case villages (27 trees), 43% at far control villages (38 trees), and 27% at near control villages (24 trees). 
 
 #### Where are bats found
 
@@ -161,13 +170,14 @@ date_palm_vil %>%
 
 ```
 
-Date palms at 85% (41/48) of villages received a bat visit. Date palms at case villages received 80% (6454) visits, at far control villages 5.5% (446), and at near control villages 14.5% (1172). Trees at case villages received 80% of bat visits while cases villages have 25% of trees observed. Comparatively, trees at near control villages received 14.5% of bat visits while representing 30% of observed trees. 
+Date palms at 87% (41/47) of villages received a bat visit. Date palms at case villages received 80% (6454) visits, at far control villages 5.5% (446), and at near control villages 14.5% (1172). Trees at case villages received 80% of bat visits while cases villages have 25% of trees observed. Comparatively, trees at near control villages received 14.5% of bat visits while representing 30% of observed trees. 
 
 ```{r}
+# graph of villages with and without bat visits by village type
 bat_vil_tot %>% 
   ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
-    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    geom_bar(stat = "count") +
+    #geom_text(stat='count', aes(label=..count..), vjust=-.5) +
+    geom_bar(position = "fill") +
     theme_minimal() +
     labs(title = "Villages with and without bat visits by village type")
 ```
@@ -246,12 +256,39 @@ bat_tree_tot %>%
 
 #### Observed bat feeding behavior
 
-
 ```{r data for only visits}
 # create a dataset that removes observations with no bat visit
 date_palm_visits <- date_palm_vil %>% 
   filter(Number_of_visits != 0)
 ```
+
+Because the overall number and percentages of bat visits can be highly biased by the number of visits received by individual trees, and that this can be an artifact of the sampling technique, we can examine visit duration. Both cumulative and average duration provide important information.
+
+```{r}
+# overall cumulative and average visit durations
+date_palm_visits %>%
+  summarize(num = n(),
+            cum = sum(DurStayT),
+            q1 = quantile(DurStayT, 0.25),
+            median = median(DurStayT),
+            mean = mean(DurStayT),
+            q3 = quantile(DurStayT, 0.75),
+            max = max(DurStayT))
+
+# cumulative and average visit duration by village type
+date_palm_visits %>%
+  group_by(case_control_group) %>% 
+  summarize(num = n(),
+            cum = sum(DurStayT),
+            q1 = quantile(DurStayT, 0.25),
+            median = median(DurStayT),
+            mean = mean(DurStayT),
+            q3 = quantile(DurStayT, 0.75),
+            max = max(DurStayT))
+
+```
+
+Overall the maximum visit duration was 21604 seconds compared to a minimum of 1 second. Mean visit duration was 62 seconds compared to a median of 2 seconds. When examined by village type, case villages had the lowest mean visit duration at 44 seconds, compared to control villages at 101 seconds and far control villages at 207 seconds. 
 
 Examine the total number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination. 
 
