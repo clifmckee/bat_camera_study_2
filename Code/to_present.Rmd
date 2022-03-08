@@ -40,7 +40,6 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(knitr)
-library(reshape)
 library(gridExtra)
 library(haven)
 library(RGraphics)
@@ -619,6 +618,35 @@ bat_tree_tot %>%
              cumpercent = round(cumsum(freq = n / sum(n)),3))
 ```
 
+```{r total date palm trees visited and trees that received visits by buffet village type}
+# total trees visits and trees that received visits by buffet village type
+bat_tree_tot %>% 
+  left_join(all_data %>% dplyr::select(Tree_number, Trees_observed)) %>% 
+  distinct() %>% 
+  mutate(yn_visit_rc = case_when(yn_visit == "yes" ~ 1,
+                                 TRUE ~ 0)) %>% 
+  group_by(Trees_observed) %>% 
+  summarise(n_tree = n(), 
+            n_tree_visited = sum(yn_visit_rc)) %>%
+  mutate(total_n_tree = (cumsum(n_tree)), 
+         percent_n_tree_visit = round((n_tree_visited / n_tree), 3))
+```
+
+```{r total date palm visits and trees that received visits by buffet village type and village type}
+# total trees visits and trees that received visits by buffet village type and village type
+bat_tree_tot %>% 
+  left_join(all_data %>% dplyr::select(Tree_number, Trees_observed)) %>% 
+  distinct() %>% 
+  mutate(yn_visit_rc = case_when(yn_visit == "yes" ~ 1,
+                                 TRUE ~ 0)) %>% 
+  group_by(Trees_observed, case_control_group) %>% 
+  summarise(n_tree = n(), 
+            n_tree_visited = sum(yn_visit_rc)) %>%
+  mutate(total_n_tree = (cumsum(n_tree)), 
+         total_n_tree_visit = (cumsum(n_tree_visited)), 
+         percent_n_tree_visit = round((n_tree_visited / n_tree), 3))
+```
+
 
 ```{r boxplot of tree visits by village type, eval=FALSE, include=FALSE}
 # including trees with no visits and outlier
@@ -659,6 +687,31 @@ date_palm_vil %>%
               scale = "width", 
               show.legend = FALSE) +
   facet_wrap(~ case_control_group) +
+  theme_bw() +
+  labs(title = "Bat visit contamination duration (seconds) at date palm trees by village and bat type, log transformed", 
+       y = "log contamination duration", 
+       x = "Bat type") +
+    aes(fill = as.factor(case_control_group)) +
+    scale_fill_manual(values = c("case" = "#E69F00",
+                                 "control, far" = "#56B4E9",
+                                 "control, near" = "#009E73")) +
+   theme(axis.text.x = element_text(angle = 25, hjust = 1),
+         axis.title.y = element_text(vjust = 1), 
+         axis.title = element_text(size = 10), 
+         plot.title = element_text(size = 12)) 
+```
+
+* across village types pteropus contamination duration is higher than other bat species. This is slightly higher in case villages than control villages
+
+```{r echo=FALSE, warning=FALSE}
+all_data %>%
+  filter(Number_of_visits > 0, 
+         dp_or_fruit == "Date palm") %>%
+  ggplot(aes(x = recode_P_NP, y = log(DurContT))) +
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), 
+              scale = "width", 
+              show.legend = FALSE) +
+  facet_wrap(Trees_observed~ case_control_group) +
   theme_bw() +
   labs(title = "Bat visit contamination duration (seconds) at date palm trees by village and bat type, log transformed", 
        y = "log contamination duration", 
@@ -1048,7 +1101,7 @@ bat_tree_tot_f %>%
 all_data %>%
   filter(Number_of_visits > 0, 
          dp_or_fruit == "Fruit") %>%
-  group_by(Trees_observed, case_control_group, recode_P_NP) %>% 
+  group_by(case_control_group, recode_P_NP) %>% 
   summarize(num_visits = n(),
             cum = sum(DurContT),
             q1 = quantile(DurContT, 0.25),
@@ -1057,6 +1110,30 @@ all_data %>%
             q3 = quantile(DurContT, 0.75),
             max = max(DurContT))
 
+```
+
+* again pteropus contamination duration higher across village types (only 4 pteropus visits at far control villages, so difficult to assess)
+
+```{r echo=FALSE, warning=FALSE}
+ fruit_data_vil %>%
+  filter(Number_of_visits > 0) %>%
+  ggplot(aes(x = recode_P_NP, y = log(DurContT))) +
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), 
+              scale = "width", 
+              show.legend = FALSE) +
+  facet_wrap(~ case_control_group) +
+  theme_bw() +
+  labs(title = "Bat visit contamination duration (seconds) at fruit trees by village and bat type, log transformed", 
+       y = "log contamination duration", 
+       x = "Bat type") +
+    aes(fill = as.factor(case_control_group)) +
+    scale_fill_manual(values = c("case" = "#E69F00",
+                                 "control, far" = "#56B4E9",
+                                 "control, near" = "#009E73")) +
+   theme(axis.text.x = element_text(angle = 25, hjust = 1),
+         axis.title.y = element_text(vjust = 1), 
+         axis.title = element_text(size = 10), 
+         plot.title = element_text(size = 12)) 
 ```
 
 ```{r echo=FALSE, warning=FALSE}
