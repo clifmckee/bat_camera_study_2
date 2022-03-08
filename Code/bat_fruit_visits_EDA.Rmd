@@ -44,7 +44,7 @@ Overall there are 514 rows of observations across 26 variables.
 survey_villages_1 <- fruit_survey %>% 
                         select(correct_villid,case_control_group) #only keep village type information
 survey_villages_1 <- survey_villages_1 %>% 
-                        rename(Village_ID = correct_villid)
+                        dplyr::rename(Village_ID = correct_villid)
 survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
 survey_villages_1 <- survey_villages_1[!duplicated(survey_villages_1), ] #drop duplicate observations
 survey_villages_1 <- na.omit(survey_villages_1) #drop NA values
@@ -106,7 +106,7 @@ fruit_data_vil %>%
   group_by(case_control_group) %>% 
   summarize(num_tree = n_distinct(Tree_number)) %>% 
   mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
-  rename(village_type = case_control_group)
+  dplyr::rename(village_type = case_control_group)
 
 ```
 
@@ -117,7 +117,7 @@ tree_summary_vil <- fruit_data_vil %>%
   group_by(Tree_type) %>%
   summarize(num_trees = n_distinct(Tree_number)) %>% 
   mutate("percent_trees" = num_trees/sum(num_trees)*100) %>% 
-  rename(tree_type = Tree_type)
+  dplyr::rename(tree_type = Tree_type)
 tree_summary_vil
   #only 5 tree types with more than 2 trees observed
 
@@ -366,19 +366,19 @@ Examine the number and percentage of visits that resulted in a stay, visits that
 v_stay <- fruit_data_visits %>% 
   group_by(case_control_group) %>% 
   summarise(num_stays = sum(Number_of_stays)) %>% 
-  rename(case_control_group1 = case_control_group)
+  dplyr::rename(case_control_group1 = case_control_group)
 
 # visits resulting in a contamination
 v_cont <- fruit_data_visits %>% 
   group_by(case_control_group) %>% 
   summarise(num_cont = sum(Number_of_contaminations)) %>% 
-  rename(case_control_group2 = case_control_group)
+  dplyr::rename(case_control_group2 = case_control_group)
 
-# table for all variables
-visit_summary <- cbind(village_summary_visits, v_stay, v_cont)
-visit_summary <- visit_summary %>% 
-  subset(select = -c(case_control_group1, case_control_group2, percent_visits))
-visit_summary
+# # table for all variables
+# visit_summary <- cbind(village_summary_visits, v_stay, v_cont)
+# visit_summary <- visit_summary %>% 
+#   subset(select = -c(case_control_group1, case_control_group2, percent_visits))
+# visit_summary
 ```
 
 Create bar charts representing the above information with fill color based on stays/contaminations that occurred.
@@ -417,14 +417,14 @@ v_stay_tree <- fruit_data_visits %>%
   group_by(Tree_type) %>% 
   summarise(num_stays = sum(Number_of_stays)) %>% 
   mutate("percent_stays" = num_stays/sum(num_stays)*100) %>% 
-  rename(Tree_type1 = Tree_type)
+  dplyr::rename(Tree_type1 = Tree_type)
 
 # visits resulting in a contamination
 v_cont_tree <- fruit_data_visits %>% 
   group_by(Tree_type) %>% 
   summarise(num_cont = sum(Number_of_contaminations)) %>% 
   mutate("percent_cont" = num_cont/sum(num_cont)*100) %>% 
-  rename(Tree_type2 = Tree_type)
+  dplyr::rename(Tree_type2 = Tree_type)
 
 # table for all variables
 visit_summary_tree <- tree_summary_bat %>% 
@@ -508,7 +508,7 @@ avg_cont <- fruit_data_visits %>%
   group_by(case_control_group) %>% 
   summarize(avg_cont_dur = mean(DurContT), 
             med_cont_dur = median(DurContT)) %>% 
-  rename(case_control_group3 = case_control_group)
+  dplyr::rename(case_control_group3 = case_control_group)
 
 # average stay duration for stays that didn't result in a contamination
 avg_stay_ncont <- fruit_data_visits %>% 
@@ -516,7 +516,7 @@ avg_stay_ncont <- fruit_data_visits %>%
   group_by(case_control_group) %>% 
   summarize(avg_stay_ncont_dur = mean(DurContT), 
             med_stay_ncont = median(DurContT)) %>% 
-  rename(case_control_group2 = case_control_group)
+  dplyr::rename(case_control_group2 = case_control_group)
 
 # average stay duration for stays that did result in a contamination
 avg_stay_cont <- fruit_data_visits %>% 
@@ -524,7 +524,7 @@ avg_stay_cont <- fruit_data_visits %>%
   group_by(case_control_group) %>% 
   summarize(avg_stay_cont_dur = mean(DurStayT), 
             med_stay_cont = median(DurStayT)) %>% 
-  rename(case_control_group1 = case_control_group)
+  dplyr::rename(case_control_group1 = case_control_group)
 
 average_duration <- cbind(avg_stay, avg_stay_ncont, avg_stay_cont, avg_cont)
 average_duration <- average_duration %>% 
