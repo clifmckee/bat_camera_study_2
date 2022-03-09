@@ -1226,6 +1226,8 @@ fruit_survey %>%
   summarise(participants_per_villagetype = n_distinct(dataid))
 ```
 
+Still waiting on updated list of winter fruit names - currently using matching fruit names from trees observed for camera traps.
+
 ```{r name lists, include=FALSE}
 # list of fruit names
 fruit_names <- c("banana", "mango", "buroi", "sofeda", "guava", "date.palm",
@@ -1234,6 +1236,8 @@ fruit_names <- c("banana", "mango", "buroi", "sofeda", "guava", "date.palm",
                  "plum", "rose.apple", "indian.olive", "latkan", "monkey.jack", "uriam",
                  "rattan",  "river.ebony", "star.fruit", "wild.dates", "coconut", "betel",
                  "blackberry.jam", "water.chestnut")
+# list of winter fruit names
+fruit_names_winter <- c("buroi", "guava", "star.fruit", "sofeda", "banana", "indian.olive",                          "betel", "jackfruit", "papaya", "date.palm")
 
 # list of animal names
 animal_names <- c("cattle", "buffalo", "goats", "pigs",
@@ -1509,12 +1513,12 @@ fruit_survey %>%
 
 **How many [insert fruit] trees grow in or around your bari?**
 
-* Mango, jackfruit, and banana are the most commonly cultivated trees present across baris. However, in terms of numbers of trees, more individual betel, banana, and manngo trees are present in an average bari
-* still need to update for winter fruiting trees
+* jack fruit, banana, and guava are the most common fruit trees reported in baris. About 50% of respondents report betel and buroi in their baris. 
 
-```{r fruit tree presence in bari graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
+```{r winter fruit tree presence in bari graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
 # create a new object where presence consumption across village types is ranked
 rank_tp_presence_grouped_mean <- tp_presence_grouped %>%
+  subset(fruit %in% fruit_names_winter) %>% 
   filter(measure == "mean") %>%
   group_by(fruit) %>%
   mutate(average = mean(tp_fruit)) %>%
@@ -1535,7 +1539,7 @@ rank_tp_presence_grouped_mean %>%
   scale_x_discrete(labels = rank_tp_presence_grouped_names) +
   labs(x = "Fruit type",
        y = "Proportion of baris with tree type",
-       title = "Proportion of respondants reporting tree presence in bari grouped by village type") +
+       title = "Proportion of respondants reporting winter fruiting tree presence in bari grouped by village type") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         axis.title.y = element_text(vjust = 1)) +
@@ -1549,42 +1553,6 @@ rank_tp_presence_grouped_mean %>%
   )
 ```
 
-```{r fruit tree abundance in bari graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
-# create a new object where average abundance across village types is ranked
-rank_tp_number_grouped_mean <- tp_number_grouped %>%
-  filter(measure == "mean") %>%
-  group_by(fruit) %>%
-  mutate(average = mean(tp_fruit)) %>%
-  arrange(desc(average)) %>%
-  ungroup() %>%
-  mutate(rank = dense_rank(desc(average)))
-
-# pull out the ranked fruit names
-rank_tp_number_grouped_names <- rank_tp_number_grouped_mean %>%
-  distinct(fruit) %>%
-  pull(fruit)
-
-# plot fruit tree abundance with x-axis ranked by the average
-rank_tp_number_grouped_mean %>%
-  filter(measure == "mean") %>%
-  ggplot(aes(x = factor(rank), y = tp_fruit, color = case_control_group)) +
-  geom_jitter(height = 0, width = 0.2, alpha = 0.8) +
-  scale_x_discrete(labels = rank_tp_number_grouped_names) +
-  labs(x = "Fruit type",
-       y = "Number of trees in bari",
-       title = "Number of trees present in a bari grouped by village type") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        axis.title.y = element_text(vjust = 1)) +
-  scale_color_manual(
-    name = "Village type",
-    values = c(
-      "case" = "#E69F00",
-      "control, far" = "#56B4E9",
-      "control, near" = "#009E73"
-    )
-  )
-```
 
 * respondents reporting tree presence in bari is not dissimilar across buffet village types: mango, jackfruit, guava, banana, and coconut were the most commonly planted trees across baris
 * in villages with no trees observed, baris in near control villages had a high number of betel trees
@@ -1592,6 +1560,7 @@ rank_tp_number_grouped_mean %>%
 ```{r fruit tree presence in bari by buffet type graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
 # create a new object where average presence across village types is ranked
 rank_tp_presence_grouped2_mean <- tp_presence_grouped2 %>%
+  subset(fruit %in% fruit_names_winter) %>%   
   filter(measure == "mean") %>%
   group_by(fruit) %>%
   mutate(average = mean(tp_fruit2)) %>%
@@ -1613,7 +1582,7 @@ rank_tp_presence_grouped2_mean %>%
   scale_x_discrete(labels = rank_tp_presence_grouped2_names) +
   labs(x = "Fruit type",
        y = "Proportion of baris with tree type",
-       title = "Proportion of respondants reporting tree presence in bari grouped by village type") +
+       title = "Proportion of respondants reporting winter fruiting tree presence in bari grouped by village type") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
         axis.title.y = element_text(vjust = 1)) +
@@ -1627,51 +1596,17 @@ rank_tp_presence_grouped2_mean %>%
   )
 ```
 
-```{r fruit tree abundance in bari by buffet type graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
-# create a new object where average abundance across village types is ranked
-rank_tp_number_grouped2_mean <- tp_number_grouped2 %>%
-  filter(measure == "mean") %>%
-  group_by(fruit) %>%
-  mutate(average = mean(tp_fruit2)) %>%
-  arrange(desc(average)) %>%
-  ungroup() %>%
-  mutate(rank = dense_rank(desc(average)))
-
-# pull out the ranked fruit names
-rank_tp_number_grouped2_names <- rank_tp_number_grouped2_mean %>%
-  distinct(fruit) %>%
-  pull(fruit)
-
-# plot fruit tree abundance with x-axis ranked by the average
-rank_tp_number_grouped2_mean %>%
-  filter(measure == "mean") %>%
-  ggplot(aes(x = factor(rank), y = tp_fruit2, color = case_control_group)) +
-  geom_jitter(height = 0, width = 0.2, alpha = 0.8) +
-  facet_wrap(~Trees_observed) +
-  scale_x_discrete(labels = rank_tp_number_grouped2_names) +
-  labs(x = "Fruit type",
-       y = "Number of trees in bari",
-       title = "Number of trees present in a bari grouped by village type") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        axis.title.y = element_text(vjust = 1)) +
-  scale_color_manual(
-    name = "Village type",
-    values = c(
-      "case" = "#E69F00",
-      "control, far" = "#56B4E9",
-      "control, near" = "#009E73"
-    )
-  )
-```
 
 **Do members of your bari eat any [insert fruit] off the ground?**
 
-* need to amend to only winter fruiting trees
+* jujube/buroi is the most common fruit to be eaten off the ground. This corresponds to jujube trees making up the largest proportion of fruit trees observed for visits in this study, and guava being the second most. 
+* While betel is the 3rd most commonly consumed dropped winter fruit, only 1 betel tree was observed for fruit visits 
+* generally little variation between village types
 
-```{r human dropped fruit consumption graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
+```{r human dropped winter fruit consumption graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
 # create a new object where average consumption across village types is ranked
 rank_h_dropped_grouped_mean <- h_dropped_grouped %>%
+  subset(fruit %in% fruit_names_winter) %>%   
   filter(measure == "mean") %>%
   group_by(fruit) %>%
   mutate(average = mean(human_dropped_fruit)) %>%
@@ -1692,7 +1627,7 @@ rank_h_dropped_grouped_mean %>%
   scale_x_discrete(labels = rank_h_dropped_grouped_names) +
   labs(x = "Fruit type",
        y = "Proportion of baris with members\nconsuming fruit off ground",
-       title = "Proportion of respondants reporting dropped fruit\nconsumption by bari members grouped by village type") +
+       title = "Proportion of respondants reporting dropped winter fruit\nconsumption by bari members grouped by village type") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         axis.title.y = element_text(vjust = 1)) +
@@ -1708,11 +1643,12 @@ rank_h_dropped_grouped_mean %>%
 
 **Do members of your bari eat any [insert fruit]?**
 
-* need to amend to only winter fruiting trees
+* high winter fruit consumption, similar between village types
 
-```{r human fruit consumption graph, echo=FALSE, fig.height = 5, fig.width = 10, fig.align = "center"}
+```{r human winter fruit consumption graph, echo=FALSE, fig.height = 5, fig.width = 10, fig.align = "center"}
 # create a new object where average consumption across village types is ranked
 rank_h_fruit_grouped_mean <- h_fruit_grouped %>%
+  subset(fruit %in% fruit_names_winter) %>%     
   filter(measure == "mean") %>%
   group_by(fruit) %>%
   mutate(average = mean(human_fruit)) %>%
@@ -1733,7 +1669,7 @@ rank_h_fruit_grouped_mean %>%
   scale_x_discrete(labels = rank_h_fruit_grouped_names) +
   labs(x = "Fruit type",
        y = "Proportion of baris with members\nconsuming fruit",
-       title = "Proportion of respondants reporting fruit\nconsumption by bari members by village type") +
+       title = "Proportion of respondants reporting winter fruit\nconsumption by bari members by village type") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         axis.title.y = element_text(vjust = 1)) +
@@ -1749,11 +1685,13 @@ rank_h_fruit_grouped_mean %>%
 
 **Do domestic mammals (cow,sheep,goat,pig,dog,cat) eat [insert fruit] off ground?**
 
-* need to amend to only winter fruiting trees
+* Again jujube/buroi ang guava consumption is highest
+* Again, similar across village types
 
 ```{r animal dropped fruit consumption graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
 # create a new object where average consumption across village types is ranked
 rank_a_dropped_grouped_mean <- a_dropped_grouped %>%
+  subset(fruit %in% fruit_names_winter) %>%     
   filter(measure == "mean") %>%
   group_by(fruit) %>%
   mutate(average = mean(animal_dropped_fruit)) %>%
@@ -1790,11 +1728,13 @@ rank_a_dropped_grouped_mean %>%
 
 **Do bats eat any [insert fruit]?**
 
-* need to amend to only winter fruiting trees
+* Highest reported bat consumption of winter fruits for guava, banana, and jujube/buroi (~80%).
+* matches these three tree types all receiving bat visits 
 
-```{r bat fruit consumption graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
+```{r bat winter fruit consumption graph, echo=FALSE, fig.align="center", fig.height=5, fig.width=10}
 # create a new object where average consumption across village types is ranked
 rank_b_fruit_grouped_mean <- b_fruit_grouped %>%
+  subset(fruit %in% fruit_names_winter) %>%     
   filter(measure == "mean") %>%
   group_by(fruit) %>%
   mutate(average = mean(bat_fruit)) %>%
@@ -1815,7 +1755,7 @@ rank_b_fruit_grouped_mean %>%
   scale_x_discrete(labels = rank_b_fruit_grouped_names) +
   labs(x = "Fruit type",
        y = "Proportion of baris with bats\nconsuming fruit",
-       title = "Proportion of respondants reporting bat consumption\nof fruits by village type") +
+       title = "Proportion of respondants reporting bat consumption\nof winter fruits by village type") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         axis.title.y = element_text(vjust = 1)) +
@@ -1832,7 +1772,8 @@ rank_b_fruit_grouped_mean %>%
 Of the tree types included on the survey, only 6 had visits recorded using camera traps.
 
 * bat reported fruit consumption and human reported fruit consumption are similar for each tree type
-* there is little consumption variation between village types
+* there is little consumption variation between village types. However, consumption is slightly higher in case and near control villages than far control for guava, banan, and jujube/buroi. 
+* Banana, jujube/buroi, and guava had the higest reported bat consumption and a high proportion of observed trees that received at least one visit. Potential source of food contamination overlap. 
 
 ```{r banana fruit consumption comparison, echo=FALSE, fig.height = 7, fig.width = 7, fig.align = "center"}
 
@@ -1846,7 +1787,7 @@ write.csv(fruit_consumption_grouped, here("Data","fruit_consumption_grouped.csv"
 fruit_consumption_grouped %>%
   filter(
     measure == "mean",
-    fruit %in% c("banana", "guava", "date.palm", "star.fruit", "sofeda", "buroi")
+    fruit %in% c("banana", "guava", "buroi")
   ) %>%
   gather(human_fruit:tp_fruit, key = "subject", value = "proportion") %>%
   ggplot(aes(x = subject, y = proportion, color = case_control_group)) +
