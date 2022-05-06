@@ -136,3 +136,4 @@ fruit_data_update <- fruit_data_update %>%
 
 # save fruit tree visit data
 saveRDS(fruit_data_update, file= here("Data", "fruit_tree_visit_data.RDS"))
+write.csv(fruit_data_update, file = here("Data", "fruit_tree_visit_data.csv"))
