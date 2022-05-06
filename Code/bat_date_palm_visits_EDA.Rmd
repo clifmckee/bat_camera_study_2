@@ -73,19 +73,15 @@ date_palm_data[which(date_palm_data$Village_ID == 2084), ]
   # drop tree
 date_palm_data<-date_palm_data[!(date_palm_data$Tree_number == "2084.ICF1"),]
 
-table(is.na(fruit_data$Date_of_observation))
-unique(fruit_data$Day)
-unique(fruit_data$Month)
-unique(fruit_data$Year)
-  # some with NA for year 
-date_palm_data[which(is.na(date_palm_data$Year)), ] 
-  # all NAs are the same tree, date was entered incorrectly 
-
-date_palm_data$Year <- replace(date_palm_data$Year, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 2021)
+date_palm_data$Year <- replace(date_palm_data$Year, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 2012)
 date_palm_data$Month <- replace(date_palm_data$Month, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 12)
 date_palm_data$Day <- replace(date_palm_data$Day, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 20)
 date_palm_data[which(date_palm_data$Tree_number == "1065.ICT1"), ] 
 
+table(is.na(date_palm_data$Date_of_observation))
+unique(date_palm_data$Day)
+unique(date_palm_data$Month)
+unique(date_palm_data$Year)
 
 table(is.na(date_palm_data$DurStayT))
 unique(date_palm_data$P_NP)
