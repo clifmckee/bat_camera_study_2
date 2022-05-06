@@ -5,13 +5,17 @@ date: "1/24/2022"
 output: html_document
 ---
 
-*Still WIP*
+Clif - when double checking the data I found two trees that have names but where tree type is na. We had originally proceeded with dropping these since we decided that they were flagged but no observations occurred. These are still dropped in the analysis, but we may need to check that these were actually date palm trees, since it would change the number of villages that had date palm sap collection occurring. (Trees 1051.ICT1 and 1051.ICT2)
+- line 54
+
+- another tree (2084.ICF1) had nas for all of its values, was this tree also not observed? This would be the same issue as those above, dropped in the analysis thus far.
+- line 74 
 
 Bat camera vists - date palm  data
 
 This R Markdown covers exploratory data analysis for bat camera visits at located at date palm trees. Date palm trees were observed at villages where date palm sap collection was reported. 
 
-This exploratory data analysis will cover four sections; initial data examination and additional dataset formation, a summary of the trees and villages observed, where bats were found, and the bat feeding behavior that was observed. 
+This file covers initial data examination and additional dataset formation for the three data streams; date palm camera trap observations, fruit tree camera trap observations, and community survey data.
 
 ```{r load packages, message = FALSE}
 library(here)
@@ -33,13 +37,64 @@ fruit_survey <- fruit_survey <- readRDS(here("DATA", "community_resident_fruit_s
 str(date_palm_data) 
 
 head(date_palm_data)
-
-# one village that had no trees observed 
-date_palm_data <- date_palm_data[complete.cases(date_palm_data[ , "Tree_type"]),]
-date_palm_data <- date_palm_data[complete.cases(date_palm_data[ , "Date_of_observation"]),]
 ```
 
-Dataset includes 8097 rows of information across 27 varibles
+```{r}
+# Examine values in main columns used for analysis 
+table(is.na(date_palm_data$Village_ID))
+
+table(is.na(date_palm_data$Tree_number))
+
+unique(date_palm_data$Tree_type)
+  # different spellings of date palm
+  # one column with date as tree type
+table(is.na(date_palm_data$Tree_type))
+  # if tree type in na, tree was assigned but not observed, these are dropped 
+date_palm_data<-date_palm_data[!(is.na(date_palm_data$Tree_number)),]
+date_palm_data[which(date_palm_data$Tree_type == "05.01.2013"), ] 
+  # replace date of observation
+date_palm_data$Date_of_observation <- replace(date_palm_data$Date_of_observation, date_palm_data$Tree_type == "05.01.2013", "05.01.2013")
+date_palm_data$Day <- replace(date_palm_data$Day, date_palm_data$Tree_type == "05.01.2013", 5)
+date_palm_data$Month <- replace(date_palm_data$Month, date_palm_data$Tree_type == "05.01.2013", 1)
+date_palm_data$Year <- replace(date_palm_data$Year, date_palm_data$Tree_type == "05.01.2013", 2013)
+date_palm_data[which(date_palm_data$Tree_type == "05.01.2013"), ] 
+
+  # fix tree type spelling 
+date_palm_data <- date_palm_data %>% 
+  select(-Tree_type) %>% 
+  mutate(Tree_type = "Date palm")
+unique(date_palm_data$Tree_type)
+
+table(is.na(date_palm_data$DurContT))
+  # one with na values
+date_palm_data[which(is.na(date_palm_data$DurContT)), ] 
+  # na for all measured visit variables
+date_palm_data[which(date_palm_data$Village_ID == 2084), ] 
+  # drop tree
+date_palm_data<-date_palm_data[!(date_palm_data$Tree_number == "2084.ICF1"),]
+
+table(is.na(fruit_data$Date_of_observation))
+unique(fruit_data$Day)
+unique(fruit_data$Month)
+unique(fruit_data$Year)
+  # some with NA for year 
+date_palm_data[which(is.na(date_palm_data$Year)), ] 
+  # all NAs are the same tree, date was entered incorrectly 
+
+date_palm_data$Year <- replace(date_palm_data$Year, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 2021)
+date_palm_data$Month <- replace(date_palm_data$Month, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 12)
+date_palm_data$Day <- replace(date_palm_data$Day, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 20)
+date_palm_data[which(date_palm_data$Tree_number == "1065.ICT1"), ] 
+
+
+table(is.na(date_palm_data$DurStayT))
+unique(date_palm_data$P_NP)
+unique(date_palm_data$Number_of_visits)
+unique(date_palm_data$Number_of_stays)
+unique(date_palm_data$Number_of_contaminations)
+```
+
+Dataset includes 5292 rows of information across 27 variables
 
 ```{r add village type information}
 # Combine with information on village type
@@ -69,406 +124,5 @@ date_palm_vil <- date_palm_vil %>%
   replace_with_na(replace = list(recode_P_NP = ""))
 
 saveRDS(date_palm_vil, file= here("Data", "date_palm_with_villages.RDS"))
-
-```
-
-#### Summary of observed villages and trees
-
-*Village totals*
-
-```{r Total number of villages}
-n_distinct(date_palm_vil$Village_ID)
-
-date_palm_vil %>% 
-  group_by(case_control_group) %>% 
-  summarize(num_vil = n_distinct(Village_ID))
-  # 14 case villages, 20 far control villages, 13 near control villages
-```
-There are 47 villages with date palm tree observations; 14 case villages, 13 near control villages, and 20 far control villages.
-
-*Tree observations*
-
-```{r Total number of trees}
-n_distinct(date_palm_vil$Tree_number)
-n_distinct(date_palm_vil$Tree_type)
-unique(date_palm_vil$Tree_type)
-
-
-date_palm_vil <- date_palm_vil %>% 
-  mutate(correctTree_type = case_when(!is.na(Tree_type) ~ "Date palm", 
-                             TRUE ~ "NA")) %>% 
-  replace_with_na(correctTree_type, replace = list(correctTree_type = "NA"))
-
-unique(date_palm_vil$correctTree_type)
-
-```
-
-There are 89 unique trees observed.
-
-```{r trees by village}
-# trees observed by village
-date_palm_vil %>% 
-  group_by(Village_ID) %>% 
-  summarize(num_trees = n_distinct(Tree_number)) %>% 
-  summary(num_trees)
-
-# trees observed by village type
-date_palm_vil %>% 
-  group_by(case_control_group) %>% 
-  summarize(num_tree = n_distinct(Tree_number)) %>% 
-  mutate("percent_vil" = num_tree/sum(num_tree)*100) %>% 
-  rename(village_type = case_control_group)
-```
-
-The average number of trees observed per village is 1.9 (mix-max = 1-2). 30% of tree were observed at case villages (27 trees), 43% at far control villages (38 trees), and 27% at near control villages (24 trees). 
-
-#### Where are bats found
-
-```{r total number of bat visits}
-# total bat visits
-date_palm_vil %>%
-      group_by(Number_of_visits) %>%
-      summarise(n = n()) %>%
-      mutate(totalN = (cumsum(n)),
-             percent = round((n / sum(n)), 3),
-             cumpercent = round(cumsum(freq = n / sum(n)),3))
-```
-
-There were 8072 bat visits observed. However, bats may be observed multiple times if they exited and then reentered the camera frame. This would be counted as two separate visits. 
-
-```{r}
-# bat visits by village
-bat_vil_tot <- date_palm_vil %>% 
-  group_by(Village_ID) %>% 
-  summarize(num_visits = sum(Number_of_visits)) %>% 
-  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no")) %>% 
-  inner_join(survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
-
-# villages with no bat visits
-bat_vil_tot %>%
-      group_by(yn_visit) %>%
-      summarise(n = n()) %>%
-      mutate(totalN = (cumsum(n)),
-             percent = round((n / sum(n)), 3),
-             cumpercent = round(cumsum(freq = n / sum(n)),3))
-
-# visits by village type 
-date_palm_vil %>%
-  group_by(case_control_group) %>%
-  summarise(n = sum(Number_of_visits)) %>% 
-  mutate(totalN = (cumsum(n)),
-         percent = round((n / sum(n)), 3),
-         cumpercent = round(cumsum(freq = n / sum(n)),3))
-
-date_palm_vil %>%
-  filter(Tree_number != "3038.ICT1") %>% 
-  group_by(case_control_group) %>%
-  summarise(n = sum(Number_of_visits)) %>% 
-  mutate(totalN = (cumsum(n)),
-         percent = round((n / sum(n)), 3),
-         cumpercent = round(cumsum(freq = n / sum(n)),3))
-
-```
-
-Date palms at 87% (41/47) of villages received a bat visit. Date palms at case villages received 80% (6454) visits, at far control villages 5.5% (446), and at near control villages 14.5% (1172). Trees at case villages received 80% of bat visits while cases villages have 25% of trees observed. Comparatively, trees at near control villages received 14.5% of bat visits while representing 30% of observed trees. 
-
-```{r}
-# graph of villages with and without bat visits by village type
-bat_vil_tot %>% 
-  ggplot(aes(x=factor(case_control_group), fill=yn_visit)) +
-    #geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    geom_bar(position = "fill") +
-    theme_minimal() +
-    labs(title = "Villages with and without bat visits by village type")
-```
-
-
-```{r}
-# bat visits by tree
-bat_tree_tot <- date_palm_vil %>% 
-  group_by(Tree_number) %>% 
-  summarize(num_visits = sum(Number_of_visits)) %>% 
-  mutate(yn_visit = case_when(num_visits > 0 ~ "yes", TRUE ~ "no"))
-  #figure out what to do with NAs for tree type
-
-# Add back village type information
-# Dataframe with village type information for each tree
-tree_vil_info <- date_palm_vil %>% 
-                        select(Tree_number,case_control_group)
-tree_vil_info <- tree_vil_info[!duplicated(tree_vil_info), ]
-tree_vil_info <- na.omit(tree_vil_info)
-bat_tree_tot <-
-  left_join(bat_tree_tot,
-            tree_vil_info %>% dplyr::select(Tree_number, case_control_group))
-
-# trees with no bat visits
-bat_tree_tot %>%
-      group_by(yn_visit) %>%
-      summarise(n = n()) %>%
-      mutate(totalN = (cumsum(n)),
-             percent = round((n / sum(n)), 3),
-             cumpercent = round(cumsum(freq = n / sum(n)),3))
-
-# trees with no bat visits by village type
-bat_tree_tot %>%
-      group_by(case_control_group, yn_visit) %>%
-      summarise(n = n()) %>%
-      mutate(totalN = (cumsum(n)),
-             percent = round((n / sum(n)), 3),
-             cumpercent = round(cumsum(freq = n / sum(n)),3))
-
-# average number of visits per tree (for trees with visits)
-bat_tree_tot %>% 
-  filter(num_visits > 0) %>% 
-  select(num_visits) %>% 
-  summary()
-
-# average number of visits per tree (for trees with visits), by village type
-bat_tree_tot %>% 
-  filter(num_visits > 0) %>%
-  group_by(case_control_group) %>% 
-  summarize(min = min(num_visits),
-            q1 = quantile(num_visits, 0.25),
-            median = median(num_visits),
-            mean = mean(num_visits),
-            q3 = quantile(num_visits, 0.75),
-            max = max(num_visits))
-
-bat_tree_tot %>% 
-  filter(num_visits > 5000)
-```
-
-Of the 85 trees observed, 71% (61/85) received a bat visit. In case villages, 81% of trees received a bat visit, compared to 62% in far controls and 77% in near control villages. Among trees that received at least one bat visit, the average number of visits was 132. The most visits received by one tree was 5544 at a case village. The average number of visits per tree was highest in case villages (363), followed by near control villages (58) and far control villages (18). 
-
-```{r}
-# box plot of bat visits per tree by village type, no outlier
-bat_tree_tot %>% 
-  na.omit() %>% 
-  filter(num_visits > 0 & num_visits < 5544) %>% 
-  ggplot(aes(x = case_control_group, y = num_visits)) +
-  geom_boxplot()
-
-# including trees with no visits and outlier
-bat_tree_tot %>% 
-  ggplot(aes(x = case_control_group, y = num_visits)) +
-  geom_boxplot()
-```
-
-#### Observed bat feeding behavior
-
-```{r data for only visits}
-# create a dataset that removes observations with no bat visit
-date_palm_visits <- date_palm_vil %>% 
-  filter(Number_of_visits != 0)
-```
-
-Because the overall number and percentages of bat visits can be highly biased by the number of visits received by individual trees, and that this can be an artifact of the sampling technique, we can examine visit duration. Both cumulative and average duration provide important information.
-
-```{r}
-# overall cumulative and average visit durations
-date_palm_visits %>%
-  summarize(num = n(),
-            cum = sum(DurStayT),
-            q1 = quantile(DurStayT, 0.25),
-            median = median(DurStayT),
-            mean = mean(DurStayT),
-            q3 = quantile(DurStayT, 0.75),
-            max = max(DurStayT))
-
-# cumulative and average visit duration by village type
-date_palm_visits %>%
-  group_by(case_control_group) %>% 
-  summarize(num = n(),
-            cum = sum(DurStayT),
-            q1 = quantile(DurStayT, 0.25),
-            median = median(DurStayT),
-            mean = mean(DurStayT),
-            q3 = quantile(DurStayT, 0.75),
-            max = max(DurStayT))
-
-```
-
-Overall the maximum visit duration was 21604 seconds compared to a minimum of 1 second. Mean visit duration was 62 seconds compared to a median of 2 seconds. When examined by village type, case villages had the lowest mean visit duration at 44 seconds, compared to control villages at 101 seconds and far control villages at 207 seconds. 
-
-Examine the total number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination. 
-
-```{r total visit stays and contaminations}
-
-# visits resulting in a stay
-date_palm_visits %>%
-   summarize(pct_stays = mean(Number_of_stays), 
-             n_stay = sum(Number_of_stays), 
-             n_not_stay = sum(Number_of_stays == 0))
-
-# visits resulting in a contamination
-date_palm_visits %>%
-   summarize(pct_cont = mean(Number_of_contaminations), 
-             n_cont = sum(Number_of_contaminations), 
-             n_not_cont = sum(Number_of_contaminations == 0))
-
-# stays resulting in a contamination
-date_palm_visits %>%
-  filter(Number_of_stays > 0) %>% 
-  summarize(pct_cont = mean(Number_of_contaminations), 
-            n_cont = sum(Number_of_contaminations), 
-            n_not_cont = sum(Number_of_contaminations == 0))
-```
-
-Overall 63% of visits resulted in a stay (5106/8072), 57% of visits resulted in a contamination (4626/8072), and 91% of stays resulted in a contamination (4626/5106).
-
-Examine the number and percentage of visits that resulted in a stay, visits that resulted in a contamination, and stays that resulted in a contamination, with a breakdown by village type. 
-
-```{r visit stays and contaminations by village type}
-
-# trees with no bat visits by village type
-date_palm_visits %>%
-      group_by(case_control_group) %>%
-      summarise(pct_stays = mean(Number_of_stays), 
-                n_stay = sum(Number_of_stays), 
-                n_not_stay = sum(Number_of_stays == 0), 
-                pct_cont = mean(Number_of_contaminations), 
-                n_cont = sum(Number_of_contaminations), 
-                n_not_cont = sum(Number_of_contaminations == 0), 
-                pct_stay_cont = mean(ifelse(Number_of_stays == 1, 
-                                            Number_of_contaminations, NA), na.rm = T), 
-                n_stay_cont = sum(ifelse(Number_of_stays == 1, 
-                                         Number_of_contaminations, NA), na.rm = T), 
-                n_stay_not_cont = sum(ifelse(Number_of_stays == 1, 
-                                             Number_of_contaminations == 0, NA), na.rm = T))
-```
-
-Interestingly, the percent of visits that resulted in a stay and the percent of visits that resulted in a contamination was lowest for case villages compared to far control and near control villages. The majority of stays resulted in contamination in all three village types. 
-
-Create bar charts representing the above information with fill color based on stays/contaminations that occurred.
-
-```{r visit stays and contaminations by village type graphs}
-
-# visits resulting in a stay
-date_palm_visits %>% 
-  mutate(yn_stay = case_when(Number_of_stays == 1 ~ "1", TRUE ~ "0")) %>% 
-    ggplot(aes(x=factor(case_control_group), fill = yn_stay)) +
-    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    geom_bar(stat = "count") +
-    theme_minimal() +
-    labs(title = "Number of bat visits resulting in a stay by village type")
-
-# visits resulting in a contamination
-date_palm_visits %>% 
-  filter(Number_of_stays == 1) %>% 
-  mutate(yn_cont = case_when(Number_of_contaminations == 1 ~ "1", TRUE ~ "0")) %>% 
-    ggplot(aes(x=factor(case_control_group), fill = yn_cont)) +
-    geom_text(stat='count', aes(label=..count..), vjust=-.5) +
-    geom_bar(stat = "count") +
-    theme_minimal() +
-    labs(title = "Number of bat stays resulting in a contamination by village type")
-
-```
-
-Examine stay and contamination durations:
-
-```{r average overall visit durations}
-
-# average stay duration for visits with a stay
-date_palm_visits %>% 
-  filter(Number_of_stays !=0) %>% 
-  select(DurStayT) %>% 
-  summary() 
-
-# average contamination duration for visits with a contamination
-date_palm_visits %>% 
-  filter(Number_of_contaminations !=0) %>% 
-  select(DurContT) %>% 
-  summary() 
-
-# average stay duration for stays that didn't result in a contamination
-date_palm_visits %>% 
-  filter(Number_of_stays==1 & Number_of_contaminations ==0) %>% 
-  select(DurStayT) %>% 
-  summary() 
-
-# average stay duration for stays that did result in a contamination
-date_palm_visits %>% 
-  filter(Number_of_stays==1 & Number_of_contaminations ==1) %>% 
-  select(DurStayT) %>% 
-  summary()
-```
-
-The median stay duration was 6s (IQR: 2-40, max: 21604). The median contamination duration was similar at 5s (IQR: 1-31, max: 21603). Interestingly, the average duration of a stay was higher for stays that did not result in contamination (39s) compared stays that DID result in a contamination (6s).
-
-```{r average duration tables by village type}
-
-# average stay duration for visits with a stay
-avg_stay <- date_palm_visits %>% 
-  filter(Number_of_stays !=0) %>% 
-  group_by(case_control_group) %>% 
-  summarize(avg_stay_dur = mean(DurStayT), 
-            med_stay_dur = median(DurStayT))
-
-# average contamination duration for visits with a contamination
-avg_cont <- date_palm_visits %>% 
-  filter(Number_of_contaminations !=0) %>% 
-  group_by(case_control_group) %>% 
-  summarize(avg_cont_dur = mean(DurContT), 
-            med_cont_dur = median(DurContT)) %>% 
-  rename(case_control_group3 = case_control_group)
-
-# average stay duration for stays that didn't result in a contamination
-avg_stay_ncont <- date_palm_visits %>% 
-  filter(Number_of_stays==1 & Number_of_contaminations !=1) %>% 
-  group_by(case_control_group) %>% 
-  summarize(avg_stay_ncont_dur = mean(DurContT), 
-            med_stay_ncont = median(DurContT)) %>% 
-  rename(case_control_group2 = case_control_group)
-
-# average stay duration for stays that did result in a contamination
-avg_stay_cont <- date_palm_visits %>% 
-  filter(Number_of_stays==1 & Number_of_contaminations ==1) %>% 
-  group_by(case_control_group) %>% 
-  summarize(avg_stay_cont_dur = mean(DurStayT), 
-            med_stay_cont = median(DurStayT)) %>% 
-  rename(case_control_group1 = case_control_group)
-
-average_duration <- cbind(avg_stay, avg_cont, avg_stay_ncont, avg_stay_cont)
-average_duration <- average_duration %>% 
-  subset(select = -c(case_control_group2, case_control_group1, case_control_group3))
-average_duration
-```
-Stay and contamination durations were highest in far control villages compared to case and near control villages. 
-
-```{r average duration boxplots by village type}
-
-date_palm_visits %>% 
-  filter(Number_of_stays !=0) %>% 
-    ggplot(aes(x = case_control_group, y = DurStayT)) +
-    geom_point() +
-    geom_jitter()
-
-# average stay duration for visits with a stay
-date_palm_visits %>% 
-  filter(Number_of_stays !=0) %>%  
-  ggplot(aes(x = case_control_group, y = DurStayT)) +
-  geom_boxplot() +
-  labs(title = "Median stay duration for visits that resulted in a stay")
-
-# average stay with outliers removed
-date_palm_visits %>% 
-  filter(Number_of_stays !=0 & DurStayT <10000) %>%  
-  ggplot(aes(x = case_control_group, y = DurStayT)) +
-  geom_boxplot() +
-  labs(title = "Median stay duration for visits that resulted in a stay, no outliers")
-
-# average contamination duration for visits with a contamination
-date_palm_visits %>% 
-  filter(Number_of_contaminations !=0) %>% 
-  ggplot(aes(x = case_control_group, y = DurContT)) +
-  geom_boxplot() +
-  labs(title = "Median stay duration for visits that resulted in contamination")
-
-# average contamination duration for visits with a contamination
-date_palm_visits %>% 
-  filter(Number_of_contaminations !=0 & DurContT <10000) %>% 
-  ggplot(aes(x = case_control_group, y = DurContT)) +
-  geom_boxplot() +
-  labs(title = "Median stay duration for visits that resulted in contamination, outliers removed")
 
 ```
