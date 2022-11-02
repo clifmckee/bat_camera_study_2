@@ -1,15 +1,17 @@
 ---
 title: "Bat date palm visits EDA"
-author: "Kelly Endres"
-date: "1/24/2022"
+author: "Kelly Endres and Clif McKee"
+date: "updated 10/25/2022"
 output: html_document
 ---
 
 Clif - when double checking the data I found two trees that have names but where tree type is na. We had originally proceeded with dropping these since we decided that they were flagged but no observations occurred. These are still dropped in the analysis, but we may need to check that these were actually date palm trees, since it would change the number of villages that had date palm sap collection occurring. (Trees 1051.ICT1 and 1051.ICT2)
 - line 54
+- RESOLVED. 1051.ICT1 and 1051.ICT2 are date palm trees and are labeled now. They will be included in the analysis even though they contain no visit data.
 
 - another tree (2084.ICF1) had nas for all of its values, was this tree also not observed? This would be the same issue as those above, dropped in the analysis thus far.
-- line 74 
+- line 74
+- RESOLVED. There were extra rows in that Excel sheet that contained blank cells. These have been deleted.
 
 Bat camera vists - date palm  data
 
@@ -48,6 +50,7 @@ table(is.na(date_palm_data$Tree_number))
 unique(date_palm_data$Tree_type)
   # different spellings of date palm
   # one column with date as tree type
+  # RESOLVED
 table(is.na(date_palm_data$Tree_type))
   # if tree type in na, tree was assigned but not observed, these are dropped 
 date_palm_data<-date_palm_data[!(is.na(date_palm_data$Tree_number)),]
@@ -61,7 +64,7 @@ date_palm_data[which(date_palm_data$Tree_type == "05.01.2013"), ]
 
   # fix tree type spelling 
 date_palm_data <- date_palm_data %>% 
-  select(-Tree_type) %>% 
+  dplyr::select(-Tree_type) %>% 
   mutate(Tree_type = "Date palm")
 unique(date_palm_data$Tree_type)
 
@@ -71,7 +74,7 @@ date_palm_data[which(is.na(date_palm_data$DurContT)), ]
   # na for all measured visit variables
 date_palm_data[which(date_palm_data$Village_ID == 2084), ] 
   # drop tree
-date_palm_data<-date_palm_data[!(date_palm_data$Tree_number == "2084.ICF1"),]
+date_palm_data <- date_palm_data[!(date_palm_data$Tree_number == "2084.ICF1"),]
 
 date_palm_data$Year <- replace(date_palm_data$Year, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 2012)
 date_palm_data$Month <- replace(date_palm_data$Month, date_palm_data$Tree_number == "1065.ICT1" & date_palm_data$Date_of_observation == "2012.12.20", 12)
@@ -97,7 +100,7 @@ Dataset includes 5292 rows of information across 27 variables
 
 # Dataframe with village type information
 survey_villages_1 <- fruit_survey %>% 
-                        select(correct_villid,case_control_group) #only keep village type information
+                        dplyr::select(correct_villid,case_control_group) #only keep village type information
 survey_villages_1 <- survey_villages_1 %>% 
                         rename(Village_ID = correct_villid)
 survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
@@ -113,11 +116,10 @@ date_palm_vil <-
 
 # recode bat types
 date_palm_vil <- date_palm_vil %>% 
-  mutate(recode_P_NP = case_when(Number_of_visits == 0 ~ "",
-                                 P_NP == 0 ~ "Non Pteropus", 
+  mutate(recode_P_NP = case_when(P_NP == 0 ~ "Non Pteropus", 
                                  P_NP == 1 ~ "Pteropus",
-                                 TRUE ~ "Unidentified")) %>% 
-  replace_with_na(replace = list(recode_P_NP = ""))
+                                 P_NP == 2 ~ "Unidentified",
+                                 P_NP == 3 ~ "no visits"))
 
 saveRDS(date_palm_vil, file= here("Data", "date_palm_with_villages.RDS"))
 

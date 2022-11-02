@@ -106,7 +106,6 @@ fruit_data_update <- fruit_data %>%
     Number_of_stays==0 & DurStayT>1 ~ 1, 
     TRUE~Number_of_stays))
 
-
 # Check that the number of visits = 1 if the number of stays = 1
 flagged_2 <- fruit_data %>% 
   filter(Number_of_visits==0 & Number_of_stays==1)

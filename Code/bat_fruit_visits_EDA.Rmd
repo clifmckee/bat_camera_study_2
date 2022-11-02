@@ -1,7 +1,7 @@
 ---
 title: "bat_fruit_visits_EDA"
-author: "Kelly Endres"
-date: "1/13/2022"
+author: "Kelly Endres and Clif McKee"
+date: "updated 10/25/2022"
 output: html_document
 ---
 
@@ -47,7 +47,7 @@ unique(fruit_data$Day)
 unique(fruit_data$Month)
 
 unique(fruit_data$Year)
-  # some with na
+  # some with na - RESOLVED
 fruit_data[which(is.na(fruit_data$Year)), ] 
 fruit_data$Year <- replace(fruit_data$Year, is.na(fruit_data$Year), 2021)
 
@@ -56,8 +56,6 @@ unique(fruit_data$P_NP)
 unique(fruit_data$Number_of_visits)
 unique(fruit_data$Number_of_stays)
 unique(fruit_data$Number_of_contaminations)
-
-
 ```
 
 
@@ -68,7 +66,7 @@ Overall there are 514 rows of observations across 26 variables.
 
 # Dataframe with village type information
 survey_villages_1 <- fruit_survey %>% 
-                        select(correct_villid,case_control_group) #only keep village type information
+                        dplyr::select(correct_villid,case_control_group) #only keep village type information
 survey_villages_1 <- survey_villages_1 %>% 
                         dplyr::rename(Village_ID = correct_villid)
 survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
@@ -85,12 +83,10 @@ fruit_data_vil <-
 
 # recode bat types
 fruit_data_vil <- fruit_data_vil %>% 
-  mutate(recode_P_NP = case_when(Number_of_visits == 0 ~ "",
-                                 P_NP == 0 ~ "Non Pteropus", 
+  mutate(recode_P_NP = case_when(P_NP == 0 ~ "Non Pteropus", 
                                  P_NP == 1 ~ "Pteropus",
-                                 TRUE ~ "Unidentified")) %>% 
-  replace_with_na(replace = list(recode_P_NP = ""))
+                                 P_NP == 2 ~  "Unidentified",
+                                 P_NP == 3 ~  "no visits"))
 
 saveRDS(fruit_data_vil, file= here("Data", "fruit_tree_with_villages.RDS"))
-
 ```
