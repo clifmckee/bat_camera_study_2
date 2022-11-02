@@ -1,0 +1,92 @@
+---
+title: "bat_fruit_visits_EDA"
+author: "Kelly Endres and Clif McKee"
+date: "updated 10/25/2022"
+output: html_document
+---
+
+### Bat camera vists - fruit tree data
+
+This R Markdown covers exploratory data analysis for bat camera visits at located at fruit trees. 
+
+This exploratory data analysis will cover four sections; initial data examination and additional dataset formation, a summary of the trees and villages observed, where bats were found, and the bat feeding behavior that was observed. Analysis will often be broken down by village type, by tree species, and by both village type and tree species. 
+
+```{r load packages, message=FALSE}
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(naniar)
+```
+
+
+#### Initial data observations
+
+```{r import data}
+fruit_data <- readRDS(here("DATA","fruit_tree_visit_data.RDS"))
+fruit_survey <- fruit_survey <- readRDS(here("DATA", "community_resident_fruit_survey.RDS"))
+```
+
+
+```{r initial overview}
+# Examine data structure
+str(fruit_data) 
+
+head(fruit_data)
+```
+
+Make sure data used for analysis is clean
+
+```{r clean data check}
+
+table(is.na(fruit_data$Village_ID))
+table(is.na(fruit_data$Tree_number))
+unique(fruit_data$Tree_type)
+table(is.na(fruit_data$Date_of_observation))
+unique(fruit_data$Day)
+unique(fruit_data$Month)
+
+unique(fruit_data$Year)
+  # some with na - RESOLVED
+fruit_data[which(is.na(fruit_data$Year)), ] 
+fruit_data$Year <- replace(fruit_data$Year, is.na(fruit_data$Year), 2021)
+
+table(is.na(fruit_data$DurContT))
+unique(fruit_data$P_NP)
+unique(fruit_data$Number_of_visits)
+unique(fruit_data$Number_of_stays)
+unique(fruit_data$Number_of_contaminations)
+```
+
+
+Overall there are 514 rows of observations across 26 variables. 
+
+```{r add village type information, message=FALSE}
+# Combine with information on village type
+
+# Dataframe with village type information
+survey_villages_1 <- fruit_survey %>% 
+                        dplyr::select(correct_villid,case_control_group) #only keep village type information
+survey_villages_1 <- survey_villages_1 %>% 
+                        dplyr::rename(Village_ID = correct_villid)
+survey_villages_1 <- transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
+survey_villages_1 <- survey_villages_1[!duplicated(survey_villages_1), ] #drop duplicate observations
+survey_villages_1 <- na.omit(survey_villages_1) #drop NA values
+survey_villages_1 <- survey_villages_1 %>% 
+  mutate("dup" = duplicated(survey_villages_1$Village_ID))
+
+# Add village type information
+fruit_data_vil <- transform(fruit_data, Village_ID = as.numeric(Village_ID))
+fruit_data_vil <-
+  left_join(fruit_data,
+            survey_villages_1 %>% dplyr::select(Village_ID, case_control_group))
+
+# recode bat types
+fruit_data_vil <- fruit_data_vil %>% 
+  mutate(recode_P_NP = case_when(P_NP == 0 ~ "Non Pteropus", 
+                                 P_NP == 1 ~ "Pteropus",
+                                 P_NP == 2 ~  "Unidentified",
+                                 P_NP == 3 ~  "no visits"))
+
+saveRDS(fruit_data_vil, file= here("Data", "fruit_tree_with_villages.RDS"))
+```

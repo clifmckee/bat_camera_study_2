@@ -26,8 +26,18 @@ bd2 <- readOGR(dsn = "./Data/bgd_adm_bbs_20201113_SHP",
 # Reduce resolution of Bangladesh polygon and convert to data frame
 bd2_fort <- tidy(gSimplify(bd2, tol = 0.001))
 
+# Fix some incorrect village ID numbers
+survey[survey$dataid == "108704",]$q1_6 <- "1087"
+survey[survey$dataid == "304509",]$q1_6 <- "3045"
+survey[survey$dataid == "105803",]$q1_6 <- "1058"
+survey[survey$dataid == "105806",]$q1_6 <- "1058"
+
 # Correct village survey data
 survey_correct <- survey %>%
+  # Remove duplicated rows (village 1052 had duplicated participants)
+  # For example, `dataid` 105201 showed up twice with two different interview dates
+  # The only thing that was different was the interview date, all other recorded data was identical
+  filter(!duplicated(survey$dataid)) %>%
   # Correct village ID
   mutate(correct_villid = as.numeric(substring(dataid, 1, 4))) %>%
   # Make new column for case/control group
@@ -75,7 +85,7 @@ ggplot(survey_villages, aes(x = group, y = q6_3_3)) +
 # Check that villages only have one village type listed
 survey_villages_1 <- survey_villages %>% 
   select(q1_6,case_control_group) %>% 
-  rename(Village_ID = q1_6) 
+  rename(Village_ID = q1_6)
 
 survey_villages_1 <- survey_villages_1 %>% 
   transform(survey_villages_1, Village_ID = as.numeric(Village_ID))
@@ -87,10 +97,9 @@ survey_villages_1 <- na.omit(survey_villages_1)
 survey_villages_1 <- survey_villages_1 %>% 
   mutate("dup" = duplicated(survey_villages_1$Village_ID))
 
-# village 2045 has two different village types listed
-# village 2087 has two different village types listed
-# village 3058 has two different village types listed
-
+# village 2045 has two different village types listed --> RESOLVED
+# village 2087 has two different village types listed --> RESOLVED
+# village 3058 has two different village types listed --> RESOLVED
 
 # save community resident fruit survey
-saveRDS(survey_villages, file = "community_resident_fruit_survey.rds")
+saveRDS(survey_villages, file = here("Data", "community_resident_fruit_survey.RDS"))

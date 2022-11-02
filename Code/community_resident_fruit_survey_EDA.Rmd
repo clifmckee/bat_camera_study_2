@@ -1,0 +1,76 @@
+---
+title: "Community Resident Fruit Survey EDA"
+author: "Kelly Endres"
+date: "10/25/2022"
+output: html_document
+---
+
+Rmarkdown file examining bat, human, and domestic animal fruit consumption behaviors in Bangladesh. Compares behaviors between Nipah virus case and control villages. 
+
+This preliminary data analysis reviews the community resident survey given to the selected baris in each village. The survey assesses fruit consumption, related habits, and fruit trees. Thirty-one different types of fruits/fruit trees are included in the survey. 
+
+Many questions address consumption of dropped fruits, which is used as a proxy for fruits potentially contaminated by bats. For example, if bats often visit a type of tree, and that tree's fruit is eaten off the ground, its possible that contaminated fruit is being consumed. 
+
+Overview:  
+1. Initial data observations  
+2. Fruit consumption tables, by village type and tree type  
+3. Fruit consumption graphs  
+4. Additional fruit consumption questions  
+5. Other  
+
+### 1. Initial data observations
+
+The following packages are used in analysis:
+```{r load packages, message=FALSE}
+library(here)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(haven)
+library(knitr)
+
+options(scipen = 0)
+```
+
+Import cleaned dataset of community resident surveys. 
+```{r import data}
+fruit_survey <- readRDS(here("Data","community_resident_fruit_survey.RDS"))
+```
+
+Examine data structure
+
+```{r}
+head(fruit_survey)
+
+# number of villages
+### I switched from `q1_6` to `correct_villid`.
+### The latter cleared up some of the issues with incorrect village IDs, e.g., "10" or "10061"
+table(is.na(fruit_survey$correct_villid))
+n_distinct(fruit_survey$correct_villid)
+  # 206 villages
+
+table(is.na(fruit_survey$dataid))
+n_distinct(fruit_survey$dataid)
+  # 5056 respondents
+
+
+```
+
+```{r}
+
+  # Clif - why are there 3 observations with no data?
+  ### Not sure why. They are blank in the original Stata file. We could ask Emily.
+  ### I suspect they just planned on visiting that village but didn't go.
+  fruit_survey[fruit_survey$correct_villid=="", ]
+```
+
+
+
+
+  
+
+
+
+
+
+    
