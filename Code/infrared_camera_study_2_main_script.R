@@ -1,4 +1,10 @@
 
+##########################
+# Code for the analysis of bat feeding behavior on date palm sap and fruit trees
+# R version 4.2.1 "Funny-Looking Kid"
+# Works: 2022-11-02
+##########################
+
 # PREAMBLE ----------------------------------------------------------------
 library(here)
 library(knitr)
